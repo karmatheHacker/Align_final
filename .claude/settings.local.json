@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install react-native-worklets@npm:react-native-worklets-core)",
+      "Bash(npm install --legacy-peer-deps react-native-worklets@npm:react-native-worklets-core)",
+      "Bash(node -e \"require.resolve\\(''react-native-worklets/plugin''\\)\")"
+    ]
+  }
+}
