@@ -16,8 +16,9 @@ import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
-import { STEP_ORDER } from '../constants/steps';
+import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import OnboardingHeading from '../components/OnboardingHeading';
+import SkipButton from '../components/SkipButton';
 
 // ---------------------------------------------------------------------------
 // Scroll Picker Column
@@ -126,9 +127,16 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
     const currentIndex = STEP_ORDER.indexOf('height');
     const totalSteps = STEP_ORDER.length;
 
+    const stepConfig = STEP_CONFIG.find(s => s.id === 'height');
+    const isRequired = stepConfig?.required ?? false;
+
     const handleNext = () => {
         const value = unit === 'FT' ? (feet * 12) + Number(inches) : cm;
         dispatch({ type: 'SET_FIELD', field: 'height', value: { value, unit } });
+        onNext();
+    };
+
+    const handleSkip = () => {
         onNext();
     };
 
@@ -214,6 +222,10 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
                     <Text style={styles.btnText}>Continue</Text>
                     <Feather name="arrow-right" size={20} color={COLORS.white} />
                 </TouchableOpacity>
+
+                {!isRequired && (
+                    <SkipButton onPress={handleSkip} />
+                )}
             </FooterFadeIn>
         </View>
     );

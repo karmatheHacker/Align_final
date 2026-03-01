@@ -18,7 +18,9 @@ import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
-import { STEP_ORDER } from '../constants/steps';
+import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
+import SkipButton from '../components/SkipButton';
+import { validateTextField, sanitizeInput } from '../utils/inputValidation';
 
 // ---------------------------------------------------------------------------
 // WorkplaceScreen
@@ -36,13 +38,19 @@ const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => 
     const currentIndex = STEP_ORDER.indexOf('workplace');
     const totalSteps = STEP_ORDER.length;
 
+    const stepConfig = STEP_CONFIG.find(s => s.id === 'workplace');
+    const isRequired = stepConfig?.required ?? false;
+
+    const validation = validateTextField(workplace, 100, !isRequired);
+    const canContinue = validation.isValid;
+
     const handleNext = () => {
-        dispatch({ type: 'SET_FIELD', field: 'workplace', value: workplace.trim() });
+        if (!canContinue) return;
+        dispatch({ type: 'SET_FIELD', field: 'workplace', value: sanitizeInput(workplace) });
         onNext();
     };
 
     const handleSkip = () => {
-        dispatch({ type: 'SET_FIELD', field: 'workplace', value: null });
         onNext();
     };
 
@@ -64,7 +72,7 @@ const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => 
                 <View style={styles.mainContent}>
                     {/* Title - Local implementation to prevent breaking and clipping */}
                     <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text 
+                        <Text
                             style={styles.title}
                             numberOfLines={1}
                             adjustsFontSizeToFit
@@ -90,9 +98,13 @@ const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => 
                             selectionColor={COLORS.primary}
                             accessibilityLabel="Workplace input"
                         />
-                        <Text style={styles.helperText}>
-                            Optional. Share your professional side.
-                        </Text>
+                        {workplace.length > 0 && !validation.isValid ? (
+                            <Text style={styles.errorText}>{validation.error}</Text>
+                        ) : (
+                            <Text style={styles.helperText}>
+                                Optional. Share your professional side.
+                            </Text>
+                        )}
                     </FadeUpView>
 
                 </View>
@@ -104,20 +116,18 @@ const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => 
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={styles.btnContinue}
+                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
                     onPress={handleNext}
                     activeOpacity={0.8}
+                    disabled={!canContinue}
                 >
                     <Text style={styles.btnText}>Continue</Text>
                     <Feather name="arrow-right" size={20} color={COLORS.white} />
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    onPress={handleSkip}
-                    style={styles.skipBtn}
-                >
-                    <Text style={styles.skipText}>SKIP FOR NOW</Text>
-                </TouchableOpacity>
+                {!isRequired && (
+                    <SkipButton onPress={handleSkip} />
+                )}
             </FooterFadeIn>
 
         </View>
@@ -187,6 +197,13 @@ const styles = StyleSheet.create({
         color: COLORS.gray,
         lineHeight: 20,
     },
+    errorText: {
+        fontFamily: 'Inter_500Medium',
+        marginTop: SPACING.sm,
+        fontSize: 14,
+        color: COLORS.primary,
+        lineHeight: 20,
+    },
     footer: {
         paddingHorizontal: SPACING.xl,
         zIndex: 10,
@@ -200,6 +217,9 @@ const styles = StyleSheet.create({
         height: 64,
         borderRadius: 0,
     },
+    btnDisabled: {
+        opacity: 0.3,
+    },
     btnText: {
         fontFamily: 'Inter_700Bold',
         color: COLORS.white,
@@ -207,17 +227,6 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 1.4,
         marginRight: SPACING.sm,
-    },
-    skipBtn: {
-        alignItems: 'center',
-        marginTop: SPACING.lg,
-        paddingVertical: SPACING.sm,
-    },
-    skipText: {
-        fontFamily: 'Inter_700Bold',
-        fontSize: 10,
-        color: COLORS.gray,
-        letterSpacing: 1.5,
     },
 });
 

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { validateName, sanitizeInput } from '../utils/inputValidation';
 
 interface NameScreenProps {
     onNext: () => void;
@@ -30,11 +31,12 @@ const NameScreen: React.FC<NameScreenProps> = ({ onNext, onBack }) => {
     const currentIndex = STEP_ORDER.indexOf('name');
     const totalSteps = STEP_ORDER.length;
 
-    const canContinue = firstName.trim().length > 0;
+    const validation = validateName(firstName);
+    const canContinue = validation.isValid;
 
     const handleNext = () => {
         if (!canContinue) return;
-        dispatch({ type: 'SET_FIELD', field: 'firstName', value: firstName.trim() });
+        dispatch({ type: 'SET_FIELD', field: 'firstName', value: sanitizeInput(firstName) });
         onNext();
     };
 
@@ -74,9 +76,15 @@ const NameScreen: React.FC<NameScreenProps> = ({ onNext, onBack }) => {
                             selectionColor={COLORS.primary}
                             accessibilityLabel="First name"
                         />
-                        <Text style={styles.helperText}>
-                            Please use your legal name as it appears on your ID.
-                        </Text>
+                        {firstName.length > 0 && !validation.isValid ? (
+                            <Text style={styles.errorText}>
+                                {validation.error}
+                            </Text>
+                        ) : (
+                            <Text style={styles.helperText}>
+                                Please use your legal name as it appears on your ID.
+                            </Text>
+                        )}
                     </FadeUpView>
                 </View>
             </KeyboardAvoidingView>
@@ -156,6 +164,13 @@ const styles = StyleSheet.create({
         marginTop: SPACING.sm,
         fontSize: 14,
         color: COLORS.gray,
+        lineHeight: 20,
+    },
+    errorText: {
+        fontFamily: 'Inter_500Medium',
+        marginTop: SPACING.sm,
+        fontSize: 14,
+        color: COLORS.primary, // Using primary color (red/peach) for error
         lineHeight: 20,
     },
     footer: {

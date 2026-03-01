@@ -19,8 +19,10 @@ import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
-import { STEP_ORDER } from '../constants/steps';
+import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import OnboardingHeading from '../components/OnboardingHeading';
+import SkipButton from '../components/SkipButton';
+import { validateTextField, sanitizeInput } from '../utils/inputValidation';
 
 const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
@@ -32,10 +34,14 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
     const [locStatus, setLocStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [locError, setLocError] = useState<string | null>(null);
 
-    const isHometownValid = hometown.trim().length >= 2;
-
     const currentIndex = STEP_ORDER.indexOf('hometown');
     const totalSteps = STEP_ORDER.length;
+
+    const stepConfig = STEP_CONFIG.find(s => s.id === 'hometown');
+    const isRequired = stepConfig?.required ?? false;
+
+    const validation = validateTextField(hometown, 100, !isRequired);
+    const canContinue = validation.isValid;
 
     const handleEnableLocation = async () => {
         try {
@@ -75,10 +81,14 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
     };
 
     const handleNext = () => {
-        if (!isHometownValid) return;
-        dispatch({ type: 'SET_FIELD', field: 'hometown', value: hometown.trim() });
+        if (!canContinue) return;
+        dispatch({ type: 'SET_FIELD', field: 'hometown', value: sanitizeInput(hometown) });
         dispatch({ type: 'SET_FIELD', field: 'location', value: city });
         dispatch({ type: 'SET_FIELD', field: 'locationCoords', value: coords });
+        onNext();
+    };
+
+    const handleSkip = () => {
         onNext();
     };
 
@@ -116,9 +126,13 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
                             autoCapitalize="words"
                             selectionColor={COLORS.primary}
                         />
-                        <Text style={styles.helperText}>
-                            Where your story began. This is a required field.
-                        </Text>
+                        {hometown.length > 0 && !validation.isValid ? (
+                            <Text style={styles.validationError}>{validation.error}</Text>
+                        ) : (
+                            <Text style={styles.helperText}>
+                                Where your story began. This is {isRequired ? "a required" : "an optional"} field.
+                            </Text>
+                        )}
                     </FadeUpView>
 
                     {/* Location Section */}
@@ -176,14 +190,18 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !isHometownValid && styles.btnDisabled]}
+                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
                     onPress={handleNext}
                     activeOpacity={0.8}
-                    disabled={!isHometownValid}
+                    disabled={!canContinue}
                 >
                     <Text style={styles.btnText}>Continue</Text>
                     <Feather name="arrow-right" size={20} color={COLORS.white} />
                 </TouchableOpacity>
+
+                {!isRequired && (
+                    <SkipButton onPress={handleSkip} />
+                )}
             </FooterFadeIn>
         </View>
     );
@@ -231,6 +249,13 @@ const styles = StyleSheet.create({
         marginTop: SPACING.sm,
         fontSize: 14,
         color: COLORS.gray,
+        lineHeight: 20,
+    },
+    validationError: {
+        fontFamily: 'Inter_500Medium',
+        marginTop: SPACING.sm,
+        fontSize: 14,
+        color: COLORS.primary, // Red/Accent color
         lineHeight: 20,
     },
     locationButton: {

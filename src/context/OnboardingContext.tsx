@@ -5,10 +5,17 @@ interface HeightData {
     unit: 'FT' | 'CM';
 }
 
+export interface Prompt {
+    id: number;
+    question: string;
+    answer: string;
+}
+
 type State = {
     firstName: string;
     birthday: string;
     gender: string;
+    pronouns: string[];
     sexuality: string;
     relationshipType: string;
     datingIntention: string;
@@ -23,15 +30,20 @@ type State = {
     schoolVisible: boolean;
     religion: string;
     religionVisible: boolean;
+    politics: string;
+    politicsVisible: boolean;
     children: string;
     tobacco: string;
     drinking: string;
+    drugs: string;
+    distancePreference: string;
     location: string;
     locationCoords: { latitude: number; longitude: number } | null;
     photos: string[];
     bio: string;
     publicBio: string;
     aiBio: string;
+    prompts: Prompt[];
     verificationStatus: string;
     notificationsEnabled: boolean;
 };
@@ -44,6 +56,7 @@ const initialState: State = {
     firstName: '',
     birthday: '',
     gender: '',
+    pronouns: [],
     sexuality: '',
     relationshipType: '',
     datingIntention: '',
@@ -58,15 +71,24 @@ const initialState: State = {
     schoolVisible: true,
     religion: '',
     religionVisible: true,
+    politics: '',
+    politicsVisible: true,
     children: '',
     tobacco: '',
     drinking: '',
+    drugs: '',
+    distancePreference: '',
     location: '',
     locationCoords: null,
     photos: [],
     bio: '',
     publicBio: '',
     aiBio: '',
+    prompts: [
+        { id: 1, question: 'Select a prompt...', answer: '' },
+        { id: 2, question: 'Select a prompt...', answer: '' },
+        { id: 3, question: 'Select a prompt...', answer: '' }
+    ],
     verificationStatus: 'unverified',
     notificationsEnabled: false,
 };

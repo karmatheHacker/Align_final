@@ -17,8 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
-import { STEP_ORDER } from '../constants/steps';
+import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import SkipButton from '../components/SkipButton';
+import { validateBio, sanitizeInput } from '../utils/inputValidation';
 
 const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNext, onBack }) => {
     const { state, dispatch } = useOnboarding();
@@ -32,10 +34,18 @@ const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNex
     const currentIndex = STEP_ORDER.indexOf('bio');
     const totalSteps = STEP_ORDER.length;
 
+    const stepConfig = STEP_CONFIG.find(s => s.id === 'bio');
+    const isRequired = stepConfig?.required ?? false;
+
+    const publicValidation = validateBio(publicBio, 300, !isRequired);
+    const aiValidation = validateBio(aiBio, 500, !isRequired);
+
+    const canContinue = publicValidation.isValid && aiValidation.isValid;
+
     const handleNext = () => {
-        if (!publicBio.trim() || !aiBio.trim()) return;
-        dispatch({ type: 'SET_FIELD', field: 'publicBio', value: publicBio.trim() });
-        dispatch({ type: 'SET_FIELD', field: 'aiBio', value: aiBio.trim() });
+        if (!canContinue) return;
+        dispatch({ type: 'SET_FIELD', field: 'publicBio', value: sanitizeInput(publicBio) });
+        dispatch({ type: 'SET_FIELD', field: 'aiBio', value: sanitizeInput(aiBio) });
         onNext();
     };
 
@@ -101,8 +111,13 @@ const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNex
                                     textAlignVertical="top"
                                     selectionColor={COLORS.primary}
                                 />
-                                <View style={styles.countWrapper}>
-                                    <Text style={styles.countText}>{publicBio.length}/300</Text>
+                                <View style={styles.footerRow}>
+                                    {publicBio.length > 0 && !publicValidation.isValid ? (
+                                        <Text style={styles.errorText}>{publicValidation.error}</Text>
+                                    ) : <View style={{ flex: 1 }} />}
+                                    <View style={styles.countWrapper}>
+                                        <Text style={styles.countText}>{publicBio.length}/300</Text>
+                                    </View>
                                 </View>
                             </View>
                         </FadeUpView>
@@ -138,8 +153,13 @@ const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNex
                                     textAlignVertical="top"
                                     selectionColor={COLORS.primary}
                                 />
-                                <View style={styles.countWrapper}>
-                                    <Text style={styles.countText}>{aiBio.length}/500</Text>
+                                <View style={styles.footerRow}>
+                                    {aiBio.length > 0 && !aiValidation.isValid ? (
+                                        <Text style={styles.errorText}>{aiValidation.error}</Text>
+                                    ) : <View style={{ flex: 1 }} />}
+                                    <View style={styles.countWrapper}>
+                                        <Text style={styles.countText}>{aiBio.length}/500</Text>
+                                    </View>
                                 </View>
                             </View>
                         </FadeUpView>
@@ -153,21 +173,18 @@ const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNex
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, (!publicBio.trim() || !aiBio.trim()) && styles.btnDisabled]}
+                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
                     onPress={handleNext}
                     activeOpacity={0.8}
-                    disabled={!publicBio.trim() || !aiBio.trim()}
+                    disabled={!canContinue}
                 >
                     <Text style={styles.btnText}>Continue</Text>
                     <Feather name="arrow-right" size={20} color={COLORS.white} />
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    onPress={handleSkip}
-                    style={styles.skipBtn}
-                >
-                    <Text style={styles.skipText}>SKIP FOR NOW</Text>
-                </TouchableOpacity>
+                {!isRequired && (
+                    <SkipButton onPress={handleSkip} />
+                )}
             </FooterFadeIn>
         </View>
     );
@@ -273,9 +290,21 @@ const styles = StyleSheet.create({
         lineHeight: 24,
         flex: 1,
     },
+    footerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    errorText: {
+        fontFamily: 'Inter_500Medium',
+        fontSize: 10,
+        color: COLORS.primary,
+        flex: 1,
+        marginRight: SPACING.md,
+    },
     countWrapper: {
         alignItems: 'flex-end',
-        marginTop: 8,
     },
     countText: {
         fontFamily: 'Inter_700Bold',
@@ -307,16 +336,6 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 1.4,
         marginRight: SPACING.sm,
-    },
-    skipBtn: {
-        alignItems: 'center',
-        marginTop: SPACING.lg,
-    },
-    skipText: {
-        fontFamily: 'Inter_700Bold',
-        fontSize: 10,
-        color: COLORS.gray,
-        letterSpacing: 1.5,
     },
 });
 

@@ -16,8 +16,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
-import { STEP_ORDER } from '../constants/steps';
+import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import SkipButton from '../components/SkipButton';
+import { validateTextField, sanitizeInput } from '../utils/inputValidation';
 interface SchoolScreenProps {
     onNext: () => void;
     onBack: () => void;
@@ -31,19 +33,22 @@ const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
     const currentIndex = STEP_ORDER.indexOf('school');
     const totalSteps = STEP_ORDER.length;
 
-    const canContinue = school.trim().length > 0;
+    const stepConfig = STEP_CONFIG.find(s => s.id === 'school');
+    const isRequired = stepConfig?.required ?? false;
+
+    const validation = validateTextField(school, 100, !isRequired);
+    const canContinue = validation.isValid;
 
     const titleText = "INSTITUTION";
-    const labelText = "Where did you study?"; 
+    const labelText = "Where did you study?";
 
     const handleNext = () => {
         if (!canContinue) return;
-        dispatch({ type: 'SET_FIELD', field: 'school', value: school.trim() });
+        dispatch({ type: 'SET_FIELD', field: 'school', value: sanitizeInput(school) });
         onNext();
     };
 
     const handleSkip = () => {
-        dispatch({ type: 'SET_FIELD', field: 'school', value: null });
         onNext();
     };
 
@@ -65,7 +70,7 @@ const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
                 <View style={styles.mainContent}>
                     {/* Title - Local implementation to fix clipping and prevent impact on other screens */}
                     <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text 
+                        <Text
                             style={styles.title}
                             numberOfLines={1}
                             adjustsFontSizeToFit
@@ -93,9 +98,13 @@ const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
                                 accessibilityLabel="School input"
                             />
                         </View>
-                        <Text style={styles.helperText}>
-                            Education helps in finding common ground with other members.
-                        </Text>
+                        {school.length > 0 && !validation.isValid ? (
+                            <Text style={styles.errorText}>{validation.error}</Text>
+                        ) : (
+                            <Text style={styles.helperText}>
+                                Education helps in finding common ground with other members.
+                            </Text>
+                        )}
                     </FadeUpView>
 
                 </View>
@@ -116,12 +125,9 @@ const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
                     <Feather name="arrow-right" size={20} color={COLORS.white} />
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    onPress={handleSkip}
-                    style={styles.skipBtn}
-                >
-                    <Text style={styles.skipText}>SKIP FOR NOW</Text>
-                </TouchableOpacity>
+                {!isRequired && (
+                    <SkipButton onPress={handleSkip} />
+                )}
             </FooterFadeIn>
 
         </View>
@@ -191,6 +197,13 @@ const styles = StyleSheet.create({
         color: COLORS.gray,
         lineHeight: 22,
     },
+    errorText: {
+        fontFamily: 'Inter_500Medium',
+        marginTop: SPACING.sm,
+        fontSize: 14,
+        color: COLORS.primary,
+        lineHeight: 20,
+    },
     footer: {
         paddingHorizontal: SPACING.xl,
         backgroundColor: COLORS.surface,
@@ -215,17 +228,6 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 1.4,
         marginRight: SPACING.sm,
-    },
-    skipBtn: {
-        alignItems: 'center',
-        marginTop: SPACING.lg,
-        paddingVertical: SPACING.sm,
-    },
-    skipText: {
-        fontFamily: 'Inter_700Bold',
-        fontSize: 10,
-        color: COLORS.gray,
-        letterSpacing: 1.5,
     },
 });
 

@@ -19,6 +19,8 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { uploadFileToSupabase } from '../utils/storage';
+import { useUser, useAuth } from '@clerk/clerk-expo';
 
 // Safe ImagePicker import to prevent crash on Dev Clients without the module
 let ImagePicker = null;
@@ -31,7 +33,12 @@ try {
 // ---------------------------------------------------------------------------
 // MediaSlotItem
 // ---------------------------------------------------------------------------
-const MediaSlotItem = ({ item, index, onAction }) => {
+interface MediaItem {
+    id: string;
+    uri: string | null;
+}
+
+const MediaSlotItem = ({ item, index, onAction }: { item: MediaItem, index: number, onAction: (actionType: 'add' | 'remove', id: string) => void }) => {
     const isRequired = index < 3;
     const isFilled = !!item.uri;
 
@@ -39,7 +46,7 @@ const MediaSlotItem = ({ item, index, onAction }) => {
         <View style={styles.mediaSlot}>
             {isFilled ? (
                 <View style={styles.mediaSlotFilled}>
-                    <Image source={{ uri: item.uri }} style={styles.mediaImage} />
+                    <Image source={{ uri: item.uri! }} style={styles.mediaImage} />
                     <TouchableOpacity
                         style={styles.editButton}
                         onPress={() => onAction('remove', item.id)}
@@ -72,19 +79,22 @@ const MediaSlotItem = ({ item, index, onAction }) => {
 // ---------------------------------------------------------------------------
 // PhotosScreen
 // ---------------------------------------------------------------------------
-const PhotosScreen = ({ onNext, onBack }) => {
+const PhotosScreen = ({ onNext, onBack }: { onNext: () => void, onBack: () => void }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
 
     const initialMedia = [1, 2, 3, 4, 5, 6].map((idx) => {
         const existingUri = state.photos && state.photos[idx - 1];
-        return { 
-            id: idx.toString(), 
-            uri: existingUri || null 
+        return {
+            id: idx.toString(),
+            uri: existingUri || null
         };
     });
 
     const [mediaItems, setMediaItems] = useState(initialMedia);
+    const [isUploading, setIsUploading] = useState(false);
+    const { user } = useUser();
+    const { getToken } = useAuth();
 
     const currentIndex = STEP_ORDER.indexOf('photos');
     const totalSteps = STEP_ORDER.length;
@@ -94,7 +104,7 @@ const PhotosScreen = ({ onNext, onBack }) => {
 
 
 
-    const handleMediaAction = async (actionType, id) => {
+    const handleMediaAction = async (actionType: 'add' | 'remove', id: string) => {
         if (actionType === 'remove') {
             setMediaItems(prev => prev.map(item =>
                 item.id === id ? { ...item, uri: null } : item
@@ -131,7 +141,7 @@ const PhotosScreen = ({ onNext, onBack }) => {
 
         // 2. Launch picker
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [3, 4],
             quality: 0.8,
@@ -145,11 +155,39 @@ const PhotosScreen = ({ onNext, onBack }) => {
         }
     };
 
-    const handleNext = () => {
-        if (!canProceed) return;
-        const uris = mediaItems.filter(i => !!i.uri).map(i => i.uri);
-        dispatch({ type: 'SET_FIELD', field: 'photos', value: uris });
-        onNext();
+    const handleNext = async () => {
+        if (!canProceed || isUploading) return;
+
+        setIsUploading(true);
+        try {
+            // Get Clerk JWT for Supabase RLS authentication
+            const token = await getToken({ template: 'supabase' });
+            const urisToUpload = mediaItems.filter(i => !!i.uri).map(i => i.uri!);
+            const userId = user?.id || 'anonymous_user';
+
+            // Upload all photos to Supabase Storage
+            const uploadPromises = urisToUpload.map(async (localUri, index) => {
+                // If it's already an http URL (like the demo photo), skip upload
+                if (localUri.startsWith('http')) return localUri;
+
+                const fileExt = localUri.split('.').pop() || 'jpg';
+                const filePath = `${userId}/photo_${index}_${Date.now()}.${fileExt}`;
+
+                const publicUrl = await uploadFileToSupabase('profile_photos', filePath, localUri, token ?? undefined);
+                return publicUrl || localUri; // Fallback to local if upload totally fails
+            });
+
+            const uploadedUrls = await Promise.all(uploadPromises);
+
+            // Store the Supabase URLs in the Global State
+            dispatch({ type: 'SET_FIELD', field: 'photos', value: uploadedUrls });
+            onNext();
+        } catch (err) {
+            console.error('Error in photo upload flow:', err);
+            Alert.alert('Upload Failed', 'There was a problem uploading your photos. Please try again.');
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const footerPaddingBottom =
@@ -224,13 +262,15 @@ const PhotosScreen = ({ onNext, onBack }) => {
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !canProceed && styles.btnDisabled]}
+                    style={[styles.btnContinue, (!canProceed || isUploading) && styles.btnDisabled]}
                     onPress={handleNext}
                     activeOpacity={0.8}
-                    disabled={!canProceed}
+                    disabled={!canProceed || isUploading}
                 >
-                    <Text style={styles.btnText}>Continue</Text>
-                    <Feather name="arrow-right" size={20} color={COLORS.white} />
+                    <Text style={styles.btnText}>
+                        {isUploading ? 'Uploading...' : 'Continue'}
+                    </Text>
+                    {!isUploading && <Feather name="arrow-right" size={20} color={COLORS.white} />}
                 </TouchableOpacity>
             </FooterFadeIn>
         </View>
