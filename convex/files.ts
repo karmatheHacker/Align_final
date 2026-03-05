@@ -77,17 +77,11 @@ export const saveVoiceProfile = mutation({
 
         const clerkId = identity.subject;
 
-        // Find existing voice profile to replace
+        // Find existing voice profiles to replace
         const existingVoiceProfiles = await ctx.db
             .query("voiceProfiles")
             .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
             .collect();
-
-        // Delete old voice files from storage and db
-        for (const profile of existingVoiceProfiles) {
-            await ctx.storage.delete(profile.storageId);
-            await ctx.db.delete(profile._id);
-        }
 
         const url = await ctx.storage.getUrl(args.storageId);
 
@@ -95,6 +89,7 @@ export const saveVoiceProfile = mutation({
             throw new Error("Failed to retrieve URL for uploaded voice file");
         }
 
+        // Insert new profile first so user is never left without one
         const newVoiceProfileId = await ctx.db.insert("voiceProfiles", {
             clerkId,
             storageId: args.storageId,
@@ -102,6 +97,12 @@ export const saveVoiceProfile = mutation({
             durationSeconds: args.durationSeconds,
             createdAt: Date.now(),
         });
+
+        // Now safely delete old voice files from storage and db
+        for (const profile of existingVoiceProfiles) {
+            await ctx.storage.delete(profile.storageId);
+            await ctx.db.delete(profile._id);
+        }
 
         return newVoiceProfileId;
     },

@@ -278,18 +278,20 @@ export default function HomeScreen() {
     const { profile } = useProfile();
     const recordSwipe = useMutation(api.swipes.recordSwipe);
     const markAIMShown = useMutation(api.ai.aims.markAIMShown);
+    const resetMySwipes = useMutation(api.users.resetMySwipes);
 
     // ── State ────────────────────────────────────────────────────────────
     const [dismissedAimIds, setDismissedAimIds] = useState<Set<string>>(new Set());
     const rawAIMs = useQuery(api.ai.aims.getMyAIMs, {});
-    const discoveryProfiles = useQuery(api.users.getDiscoveryProfiles, {});
+    const discoveryProfiles = useQuery(api.users.getAllDiscoveryProfiles, {});
     const triggerPersonality = useAction(api.ai.personality.triggerPersonalityCompute);
     const triggerBatchCompat = useAction(api.ai.compatibility.triggerBatchCompatibility);
     const isLoading = rawAIMs === undefined || discoveryProfiles === undefined;
 
     // Trigger personality profile computation on first load
     useEffect(() => {
-        triggerPersonality({}).catch(() => { });
+        // Fire-and-forget: personality compute is a background improvement, not user-critical
+        triggerPersonality({}).catch(() => undefined);
     }, []);
 
     // Trigger batch compatibility computation for profiles that don't have scores yet
@@ -299,7 +301,8 @@ export default function HomeScreen() {
             .filter((p: any) => !p.compatibility_score || p.compatibility_score === 0)
             .map((p: any) => p.clerkId);
         if (missingIds.length > 0) {
-            triggerBatchCompat({ otherClerkIds: missingIds }).catch(() => { });
+            // Fire-and-forget: compat scores improve card ordering, not user-critical
+            triggerBatchCompat({ otherClerkIds: missingIds }).catch(() => undefined);
         }
     }, [discoveryProfiles]);
 
@@ -508,8 +511,22 @@ export default function HomeScreen() {
                                 fontSize: f(13), fontFamily: 'Inter_500Medium', color: 'rgba(13,13,13,0.45)',
                                 textAlign: 'center', lineHeight: f(19), paddingHorizontal: w(20),
                             }}>
-                                ALIGN is still learning your preferences.{'\n'}New matches will appear here as more{'\n'}people join the community.
+                                You've explored all current matches.{"\n"}Check back later or reset your feed.
                             </Text>
+
+                            <TouchableOpacity
+                                onPress={() => resetMySwipes({})}
+                                activeOpacity={0.8}
+                                style={{
+                                    marginTop: h(24),
+                                    paddingHorizontal: w(24),
+                                    paddingVertical: h(12),
+                                    backgroundColor: BLACK,
+                                    borderRadius: w(20)
+                                }}
+                            >
+                                <Text style={{ fontSize: f(10), fontFamily: 'Inter_800ExtraBold', color: CREAM, letterSpacing: 1 }}>RESET FEED</Text>
+                            </TouchableOpacity>
                         </Animated.View>
                     )}
                 </ScrollView>

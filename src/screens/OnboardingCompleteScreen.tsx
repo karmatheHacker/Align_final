@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     Animated,
     ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
@@ -93,9 +94,9 @@ const OnboardingCompleteScreen: React.FC<OnboardingCompleteScreenProps> = ({ onN
                 await completeOnboardingMutation({ clerkId: user.id });
             }
             onNext();
-        } catch (err) {
-            console.error("Failed to complete onboarding", err);
+        } catch {
             setIsFinishing(false);
+            Alert.alert('Error', 'Something went wrong. Please try again.');
         }
     };
 

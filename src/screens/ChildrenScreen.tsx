@@ -35,9 +35,8 @@ const ChildrenScreen: React.FC<ChildrenScreenProps> = ({ onNext, onBack }) => {
     const handleNext = async () => {
         if (!children) return;
         try {
-            await saveField({ children: children });
-        } catch (error) {
-            console.error("Failed to save children preference:", error);
+            await saveField({ children: children }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'children', value: children });
         onNext();
@@ -45,9 +44,8 @@ const ChildrenScreen: React.FC<ChildrenScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ children: null });
-        } catch (error) {
-            console.error("Failed to save children skip:", error);
+            await saveField({ children: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'children', value: null });
         onNext();

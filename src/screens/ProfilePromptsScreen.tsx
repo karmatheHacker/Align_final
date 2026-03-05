@@ -106,9 +106,7 @@ const ProfilePromptsScreen: React.FC<ProfilePromptsScreenProps> = ({ onNext, onB
         }));
 
         // Fire and forget save to Convex
-        saveField({ prompts: dbPrompts }).catch(error => {
-            console.error("Failed to save prompts:", error);
-        });
+        saveField({ prompts: dbPrompts }).catch(() => undefined);
 
         dispatch({ type: 'SET_FIELD', field: 'prompts', value: sanitizedPrompts });
         onNext();
@@ -116,9 +114,7 @@ const ProfilePromptsScreen: React.FC<ProfilePromptsScreenProps> = ({ onNext, onB
 
     const handleSkip = async () => {
         // Fire and forget save to Convex
-        saveField({ prompts: null }).catch(error => {
-            console.error("Failed to save prompts skip:", error);
-        });
+        saveField({ prompts: null }).catch(() => undefined);
         onNext();
     };
 

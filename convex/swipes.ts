@@ -30,9 +30,9 @@ export const recordSwipe = mutation({
             .first();
 
         if (existing) {
+            // Only patch direction — preserve original createdAt
             await ctx.db.patch(existing._id, {
                 direction: args.direction,
-                createdAt: Date.now(),
             });
             // Fall through to mutual-match check so a changed left→right swipe creates a match
         } else {
@@ -63,21 +63,24 @@ export const recordSwipe = mutation({
                     )
                     .first();
 
-                if (!existingMatch) {
-                    const matchId = await ctx.db.insert("matches", {
-                        user1ClerkId: u1,
-                        user2ClerkId: u2,
-                        matchedAt: Date.now(),
-                        icebreakersGenerated: false,
-                    });
-                    // Trigger icebreaker generation asynchronously
-                    await ctx.scheduler.runAfter(
-                        0,
-                        internal.ai.icebreakers.generateIcebreakersForMatch,
-                        { matchId }
-                    );
-                    return { isMatch: true, matchId };
+                // Guard against duplicate match creation (race condition)
+                if (existingMatch) {
+                    return { isMatch: true, matchId: existingMatch._id };
                 }
+
+                const matchId = await ctx.db.insert("matches", {
+                    user1ClerkId: u1,
+                    user2ClerkId: u2,
+                    matchedAt: Date.now(),
+                    icebreakersGenerated: false,
+                });
+                // Trigger icebreaker generation asynchronously
+                await ctx.scheduler.runAfter(
+                    0,
+                    internal.ai.icebreakers.generateIcebreakersForMatch,
+                    { matchId }
+                );
+                return { isMatch: true, matchId };
             }
         }
 

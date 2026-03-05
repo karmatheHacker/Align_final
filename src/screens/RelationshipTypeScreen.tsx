@@ -33,9 +33,8 @@ const RelationshipTypeScreen: React.FC<RelationshipTypeScreenProps> = ({ onNext,
     const handleNext = async () => {
         if (!selectedType) return;
         try {
-            await saveField({ relationshipType: selectedType });
-        } catch (error) {
-            console.error("Failed to save relationship type:", error);
+            await saveField({ relationshipType: selectedType }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'relationshipType', value: selectedType });
         onNext();

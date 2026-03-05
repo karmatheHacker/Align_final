@@ -11,7 +11,6 @@ export const useUpdateOnboarding = () => {
         try {
             await updateUser({ clerkId: user.id, ...data });
         } catch (error) {
-            console.error('Failed to save onboarding data to Convex:', error);
             throw error;
         }
     };

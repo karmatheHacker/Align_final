@@ -35,8 +35,8 @@ const DatingIntentionScreen: React.FC<DatingIntentionScreenProps> = ({ onNext, o
         if (!selectedIntention) return;
         try {
             await saveField({ datingIntention: selectedIntention });
-        } catch (error) {
-            console.error("Failed to save dating intention:", error);
+        } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'datingIntention', value: selectedIntention });
         onNext();

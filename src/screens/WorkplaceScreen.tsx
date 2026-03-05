@@ -50,9 +50,8 @@ const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => 
         if (!canContinue) return;
         const value = sanitizeInput(workplace);
         try {
-            await saveField({ workplace: value });
-        } catch (error) {
-            console.error("Failed to save workplace:", error);
+            await saveField({ workplace: value }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'workplace', value });
         onNext();
@@ -60,9 +59,8 @@ const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => 
 
     const handleSkip = async () => {
         try {
-            await saveField({ workplace: null });
-        } catch (error) {
-            console.error("Failed to save workplace skip:", error);
+            await saveField({ workplace: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         onNext();
     };

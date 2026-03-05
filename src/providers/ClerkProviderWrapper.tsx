@@ -28,7 +28,10 @@ if (!publishableKey) {
     throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in .env');
 }
 
-const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL || "https://placeholder-url.convex.cloud";
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+if (!convexUrl) {
+    throw new Error('Missing EXPO_PUBLIC_CONVEX_URL in .env');
+}
 const convex = new ConvexReactClient(convexUrl);
 
 export const ClerkProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {

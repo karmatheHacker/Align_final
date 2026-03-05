@@ -321,9 +321,11 @@ export const generateAIMsForUser = internalAction({
 
             const cached = compatMap.get(candidate.clerkId);
 
-            // Stale if candidate's profile was updated after the score was computed
+            // Stale if candidate's profile OR personality was updated after the score was computed
             const candidateProfileVersion = candidate.updatedAt ?? candidate.createdAt;
-            const scoreIsFresh = cached && cached.computedAt >= (candidateProfileVersion ?? 0);
+            const personalityVersion = candidatePersonality.lastComputedAt ?? 0;
+            const latestVersion = Math.max(candidateProfileVersion ?? 0, personalityVersion);
+            const scoreIsFresh = cached && cached.computedAt >= latestVersion;
             let compatScore = scoreIsFresh ? cached!.totalScore : 50;
 
             // Schedule (re)compute whenever score is missing or stale
@@ -374,7 +376,7 @@ export const generateAIMsForUser = internalAction({
         const minScore = Math.min(...allScores);
         const maxScore = Math.max(...allScores);
         const avgScore = Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length);
-        console.log(`[AIM] ${args.clerkId} — candidates: ${scored.length}, compat min: ${minScore}, max: ${maxScore}, avg: ${avgScore}`);
+        // AIM scoring complete: scored.length candidates processed
 
         const top2 = scored.slice(0, 2);
 
@@ -510,6 +512,21 @@ export const getMostRecentAIM = internalQuery({
             .withIndex("by_owner", (q) => q.eq("ownerClerkId", args.clerkId))
             .order("desc")
             .first();
+    },
+});
+
+// ─── Cleanup: delete expired AIM records ─────────────────────────────────────
+export const pruneExpiredAIMs = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const now = Date.now();
+        const expired = await ctx.db
+            .query("ai_matches")
+            .filter((q) => q.lt(q.field("expiresAt"), now))
+            .collect();
+        for (const aim of expired) {
+            await ctx.db.delete(aim._id);
+        }
     },
 });
 

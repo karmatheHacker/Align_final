@@ -7,7 +7,7 @@ import { COLORS } from '../constants/colors';
 const triggerLight = async () => {
     try {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (_) { }
+    } catch { /* Haptics unavailable on this device — silently ignore */ }
 };
 
 interface VisibilityToggleProps {

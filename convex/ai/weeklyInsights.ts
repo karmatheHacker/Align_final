@@ -142,9 +142,7 @@ export const upsertWeeklyInsight = internalMutation({
         weekStart: v.number(),
         profileViews: v.number(),
         likesReceived: v.number(),
-        apsReceived: v.number(),
         matchesMade: v.number(),
-        conversationsStarted: v.number(),
         prevProfileViews: v.number(),
         prevLikesReceived: v.number(),
         prevMatchesMade: v.number(),
@@ -310,9 +308,7 @@ export const generateWeeklyInsightForUser = internalAction({
             weekStart,
             profileViews,
             likesReceived,
-            apsReceived: 0,         // APs managed in Supabase; reserved field
             matchesMade,
-            conversationsStarted: 0, // Conversations managed in Supabase; reserved field
             prevProfileViews,
             prevLikesReceived,
             prevMatchesMade,

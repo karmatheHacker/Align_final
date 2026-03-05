@@ -79,6 +79,11 @@ export const completeOnboarding = mutation({
             throw new Error("User not found");
         }
 
+        // Idempotent: skip AI job scheduling if onboarding already completed
+        if (existingUser.onboardingCompleted) {
+            return;
+        }
+
         await ctx.db.patch(existingUser._id, {
             onboardingCompleted: true,
         });
@@ -270,6 +275,13 @@ export const updateUserLocation = mutation({
 
         if (!user) {
             throw new Error("User not found");
+        }
+
+        if (args.latitude < -90 || args.latitude > 90) {
+            throw new Error("Invalid latitude: must be between -90 and 90.");
+        }
+        if (args.longitude < -180 || args.longitude > 180) {
+            throw new Error("Invalid longitude: must be between -180 and 180.");
         }
 
         const displayLocation = args.city && args.region
@@ -531,6 +543,38 @@ export const getUserById = query({
     },
 });
 
+export const resetMySwipes = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Unauthenticated");
+
+        const myClerkId = identity.subject;
+
+        // Delete all my swipes
+        const mySwipes = await ctx.db
+            .query("swipes")
+            .withIndex("by_from", (q) => q.eq("fromClerkId", myClerkId))
+            .collect();
+
+        for (const swipe of mySwipes) {
+            await ctx.db.delete(swipe._id);
+        }
+
+        // Also reset shown AIMs if any
+        const myAims = await ctx.db
+            .query("ai_matches")
+            .withIndex("by_owner", (q) => q.eq("ownerClerkId", myClerkId))
+            .collect();
+
+        for (const aim of myAims) {
+            await ctx.db.patch(aim._id, { shown: false });
+        }
+
+        return true;
+    },
+});
+
 export const fixLocationData = mutation({
     args: {},
     handler: async (ctx) => {
@@ -569,6 +613,67 @@ export const fixLocationData = mutation({
     },
 });
 
+
+export const getAllDiscoveryProfiles = query({
+    args: { excludedIds: v.optional(v.array(v.id("users"))) },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return [];
+
+        const myClerkId = identity.subject;
+        const excludedUserIds = new Set(args.excludedIds || []);
+
+        const mySwipes = await ctx.db
+            .query("swipes")
+            .withIndex("by_from", (q) => q.eq("fromClerkId", myClerkId))
+            .collect();
+        const swipedClerkIds = new Set(mySwipes.map((s) => s.toClerkId));
+
+        // Fetch all onboarded users except current user
+        const candidates = await ctx.db
+            .query("users")
+            .filter((q) =>
+                q.and(
+                    q.neq(q.field("clerkId"), myClerkId),
+                    q.eq(q.field("onboardingCompleted"), true),
+                )
+            )
+            .collect();
+
+        const filtered = candidates
+            .filter((u) => {
+                if (swipedClerkIds.has(u.clerkId)) return false;
+                if (excludedUserIds.has(u._id)) return false;
+                return true;
+            })
+            .slice(0, 50); // Return up to 50 for the "All Users" view
+
+        return await Promise.all(
+            filtered.map(async (user) => {
+                const [u1, u2] = myClerkId < user.clerkId
+                    ? [myClerkId, user.clerkId]
+                    : [user.clerkId, myClerkId];
+
+                const cachedScore = await ctx.db
+                    .query("compatibility_scores")
+                    .withIndex("by_pair", (q) => q.eq("user1ClerkId", u1).eq("user2ClerkId", u2))
+                    .first();
+
+                return {
+                    _id: user._id,
+                    clerkId: user.clerkId,
+                    firstName: user.firstName || user.name,
+                    age: calculateAge(user.birthday),
+                    photos: user.photos || [],
+                    location: user.location || "Nearby",
+                    prompts: user.prompts || [],
+                    bio: user.publicBio || "",
+                    compatibility_score: cachedScore?.totalScore ?? 0,
+                };
+            })
+        );
+    },
+});
 
 export const getDiscoveryProfiles = query({
     args: { excludedIds: v.optional(v.array(v.id("users"))) },

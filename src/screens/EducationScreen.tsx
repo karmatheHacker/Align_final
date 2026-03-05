@@ -37,9 +37,8 @@ const EducationScreen: React.FC<EducationScreenProps> = ({ onNext, onBack }) => 
     const handleNext = async () => {
         if (!education) return;
         try {
-            await saveField({ education: education });
-        } catch (error) {
-            console.error("Failed to save education:", error);
+            await saveField({ education: education }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'education', value: education });
         onNext();

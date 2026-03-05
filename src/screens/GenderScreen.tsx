@@ -33,9 +33,8 @@ const GenderScreen: React.FC<GenderScreenProps> = ({ onNext, onBack }) => {
     const handleNext = async () => {
         if (!selectedGender) return;
         try {
-            await saveField({ gender: selectedGender });
-        } catch (error) {
-            console.error("Failed to save gender:", error);
+            await saveField({ gender: selectedGender }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'gender', value: selectedGender });
         onNext();

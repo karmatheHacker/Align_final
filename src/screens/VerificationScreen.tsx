@@ -104,8 +104,7 @@ const VerificationScreen: React.FC<VerificationScreenProps> = ({ onNext, onBack 
 
             dispatch({ type: 'SET_FIELD', field: 'verificationStatus', value: 'pending' });
             onNext();
-        } catch (err: any) {
-            console.error('Verification error:', err);
+        } catch {
             Alert.alert("Verification Error", "Could not submit your verification. Please try again.");
         } finally {
             setIsVerifying(false);

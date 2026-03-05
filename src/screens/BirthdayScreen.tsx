@@ -81,9 +81,7 @@ const BirthdayScreen: React.FC<BirthdayScreenProps> = ({ onNext, onBack }) => {
         dispatch({ type: 'SET_FIELD', field: 'birthday', value: birthdayStr });
 
         // Fire and forget save to Convex
-        saveField({ birthday: birthdayStr }).catch(error => {
-            console.error("Failed to save birthday:", error);
-        });
+        saveField({ birthday: birthdayStr }).catch(() => undefined);
 
         setShowModal(false);
         onNext();

@@ -41,9 +41,8 @@ const DrinkingScreen: React.FC<DrinkingScreenProps> = ({ onNext, onBack }) => {
     const handleNext = async () => {
         if (!drinking) return;
         try {
-            await saveField({ drinking: drinking });
-        } catch (error) {
-            console.error("Failed to save drinking habit:", error);
+            await saveField({ drinking: drinking }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'drinking', value: drinking });
         onNext();
@@ -51,9 +50,8 @@ const DrinkingScreen: React.FC<DrinkingScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ drinking: null });
-        } catch (error) {
-            console.error("Failed to save drinking skip:", error);
+            await saveField({ drinking: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'drinking', value: null });
         onNext();

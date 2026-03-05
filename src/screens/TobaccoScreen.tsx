@@ -43,9 +43,8 @@ const TobaccoScreen: React.FC<TobaccoScreenProps> = ({ onNext, onBack }) => {
     const handleNext = async () => {
         if (!tobacco) return;
         try {
-            await saveField({ tobacco: tobacco });
-        } catch (error) {
-            console.error("Failed to save tobacco usage:", error);
+            await saveField({ tobacco: tobacco }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'tobacco', value: tobacco });
         onNext();
@@ -53,9 +52,8 @@ const TobaccoScreen: React.FC<TobaccoScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ tobacco: null });
-        } catch (error) {
-            console.error("Failed to save tobacco skip:", error);
+            await saveField({ tobacco: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'tobacco', value: null });
         onNext();

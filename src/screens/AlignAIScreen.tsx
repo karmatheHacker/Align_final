@@ -188,8 +188,7 @@ export default function AlignAIScreen() {
             setErrorMessage(null);
             await sendMessageAction({ text: text.trim() });
         } catch (err: any) {
-            console.error("Send message error:", err);
-            setErrorMessage(err.message || "Failed to send message. Please check the console.");
+            setErrorMessage(err.message || "Failed to send message. Please try again.");
         } finally {
             setIsTyping(false);
             scrollToBottom();

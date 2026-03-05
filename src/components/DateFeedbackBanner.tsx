@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Image, TextInput, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Image, TextInput, Animated, ActivityIndicator, Alert } from 'react-native';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -34,8 +34,8 @@ export default function DateFeedbackBanner() {
             });
             setModalVisible(false);
             setThumbsUp(null);
-        } catch (err) {
-            console.error(err);
+        } catch {
+            Alert.alert('Error', 'Could not submit feedback. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

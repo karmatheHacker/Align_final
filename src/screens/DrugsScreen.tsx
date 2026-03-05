@@ -46,9 +46,8 @@ const DrugsScreen: React.FC<DrugsScreenProps> = ({ onNext, onBack }) => {
     const handleNext = async () => {
         if (!drugs) return;
         try {
-            await saveField({ drugs: drugs });
-        } catch (error) {
-            console.error("Failed to save drugs usage:", error);
+            await saveField({ drugs: drugs }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'drugs', value: drugs });
         onNext();
@@ -56,9 +55,8 @@ const DrugsScreen: React.FC<DrugsScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ drugs: null });
-        } catch (error) {
-            console.error("Failed to save drugs skip:", error);
+            await saveField({ drugs: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'drugs', value: null });
         onNext();

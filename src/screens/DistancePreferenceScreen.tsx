@@ -45,9 +45,7 @@ const DistancePreferenceScreen: React.FC<DistancePreferenceScreenProps> = ({ onN
         if (!distance) return;
 
         // Fire and forget save to Convex
-        saveField({ distancePreference: distance }).catch(error => {
-            console.error("Failed to save distance preference:", error);
-        });
+        saveField({ distancePreference: distance }).catch(() => undefined);
 
         dispatch({ type: 'SET_FIELD', field: 'distancePreference', value: distance });
         onNext();
@@ -55,9 +53,7 @@ const DistancePreferenceScreen: React.FC<DistancePreferenceScreenProps> = ({ onN
 
     const handleSkip = async () => {
         // Fire and forget save to Convex
-        saveField({ distancePreference: null }).catch(error => {
-            console.error("Failed to save distance preference skip:", error);
-        });
+        saveField({ distancePreference: null }).catch(() => undefined);
         dispatch({ type: 'SET_FIELD', field: 'distancePreference', value: null });
         onNext();
     };

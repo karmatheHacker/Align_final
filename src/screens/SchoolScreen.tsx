@@ -48,9 +48,8 @@ const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
         if (!canContinue) return;
         const value = sanitizeInput(school);
         try {
-            await saveField({ school: value });
-        } catch (error) {
-            console.error("Failed to save school:", error);
+            await saveField({ school: value }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'school', value: value });
         onNext();
@@ -58,9 +57,8 @@ const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ school: null });
-        } catch (error) {
-            console.error("Failed to save school skip:", error);
+            await saveField({ school: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         onNext();
     };

@@ -22,7 +22,7 @@ const FAB: React.FC<FABProps> = ({ onPress, disabled, hint, style }) => {
         if (!hint) return;
         try {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        } catch (_) { }
+        } catch { /* Haptics unavailable on this device — silently ignore */ }
 
         setShowHint(true);
         // Disabled FAB: show tooltip but NO scale animation
@@ -45,7 +45,7 @@ const FAB: React.FC<FABProps> = ({ onPress, disabled, hint, style }) => {
         if (disabled) return;
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        } catch (_) { }
+        } catch { /* Haptics unavailable on this device — silently ignore */ }
 
         Animated.spring(pressScale, {
             toValue: 0.92,

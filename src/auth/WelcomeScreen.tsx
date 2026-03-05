@@ -39,9 +39,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNext }) => {
             } else {
                 // Use signIn or signUp for next steps such as MFA
             }
-        } catch (err: any) {
-            // Log as warning since user cancellations throw errors here
-            console.warn('OAuth flow warning:', err);
+        } catch {
+            // User cancellations and OAuth errors are silently swallowed here
         }
     }, [startOAuthFlow]);
 

@@ -77,9 +77,8 @@ const PronounsScreen: React.FC<PronounsScreenProps> = ({ onNext, onBack }) => {
         if (finalPronouns.length === 0) return;
 
         try {
-            await saveField({ pronouns: finalPronouns });
-        } catch (error) {
-            console.error("Failed to save pronouns:", error);
+            await saveField({ pronouns: finalPronouns }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'pronouns', value: finalPronouns });
         onNext();
@@ -87,9 +86,8 @@ const PronounsScreen: React.FC<PronounsScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ pronouns: null });
-        } catch (error) {
-            console.error("Failed to save pronouns skip:", error);
+            await saveField({ pronouns: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         onNext();
     };

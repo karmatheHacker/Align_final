@@ -50,9 +50,7 @@ const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNex
         const sanitizedAiBio = sanitizeInput(aiBio);
 
         // Fire and forget save to Convex
-        saveField({ publicBio: sanitizedPublicBio, aiBio: sanitizedAiBio }).catch(error => {
-            console.error("Failed to save bios:", error);
-        });
+        saveField({ publicBio: sanitizedPublicBio, aiBio: sanitizedAiBio }).catch(() => undefined);
 
         dispatch({ type: 'SET_FIELD', field: 'publicBio', value: sanitizedPublicBio });
         dispatch({ type: 'SET_FIELD', field: 'aiBio', value: sanitizedAiBio });
@@ -61,9 +59,7 @@ const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNex
 
     const handleSkip = async () => {
         // Fire and forget save to Convex
-        saveField({ publicBio: null, aiBio: null }).catch(error => {
-            console.error("Failed to save bio skip:", error);
-        });
+        saveField({ publicBio: null, aiBio: null }).catch(() => undefined);
         onNext();
     };
 

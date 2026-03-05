@@ -17,7 +17,7 @@ interface PremiumOptionRowProps {
 const triggerLight = async () => {
     try {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (_) { }
+    } catch { /* Haptics unavailable on this device — silently ignore */ }
 };
 
 const PremiumOptionRow: React.FC<PremiumOptionRowProps> = memo(({

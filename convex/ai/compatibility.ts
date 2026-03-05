@@ -474,7 +474,7 @@ Pre-computed Personality: ${JSON.stringify(p2 || {})}`;
             finalDimensions.humor = ds.humor ?? 50;
             insightsJson = rawResponse;
         } catch (err) {
-            console.error("Groq Compatibility Error:", err);
+            // Groq/parse error — fall back to heuristic scoring
             // Fallback gracefully (Legacy Logic with unknown-safe defaults)
             const prof1 = p1 ?? { values: [], communicationStyle: "unknown", lifeStage: "unknown", humor: "none", emotionalAvailability: 50, interestVector: [] };
             const prof2 = p2 ?? { values: [], communicationStyle: "unknown", lifeStage: "unknown", humor: "none", emotionalAvailability: 50, interestVector: [] };

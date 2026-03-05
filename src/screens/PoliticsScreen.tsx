@@ -62,9 +62,8 @@ const PoliticsScreen: React.FC<PoliticsScreenProps> = ({ onNext, onBack }) => {
     const handleNext = async () => {
         if (!politics) return;
         try {
-            await saveField({ politics: politics });
-        } catch (error) {
-            console.error("Failed to save politics:", error);
+            await saveField({ politics: politics }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'politics', value: politics });
         onNext();
@@ -72,9 +71,8 @@ const PoliticsScreen: React.FC<PoliticsScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ politics: null });
-        } catch (error) {
-            console.error("Failed to save politics skip:", error);
+            await saveField({ politics: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'politics', value: null });
         onNext();

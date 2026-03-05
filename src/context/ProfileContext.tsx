@@ -204,23 +204,19 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             // Retain local context update for sync
             setProfile(prev => prev ? { ...prev, [field]: value } : { [field]: value });
             return true;
-        } catch (e) {
-            console.error("Failed to update user in Convex:", e);
+        } catch {
             return false;
         }
     }, [user, updateUser]);
 
     const addPhoto = useCallback(async (_userId: string, photoUrl: string, orderIndex: number): Promise<boolean> => {
         try {
-            console.log(`[files] Step 1: Getting upload URL`);
             const uploadUrl = await generateUploadUrl();
             if (!uploadUrl) throw new Error("Could not generate upload URL");
 
-            console.log(`[files] Step 2: Fetching local photo blob from ${photoUrl}`);
             const response = await fetch(photoUrl);
             const blob = await response.blob();
 
-            console.log(`[files] Step 3: Posting blob to Convex storage ${uploadUrl}`);
             const result = await fetch(uploadUrl, {
                 method: "POST",
                 headers: { "Content-Type": blob.type },
@@ -229,15 +225,11 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
             if (!result.ok) throw new Error("Upload to storage failed");
             const { storageId } = await result.json();
-            console.log(`[files] Step 4: Storage successful. Received storageId: ${storageId}`);
 
-            console.log(`[files] Step 5: Saving photo to database`);
             await saveProfilePhotoMutation({ storageId, position: orderIndex });
-            console.log(`[files] Success: Photo uploaded completely in position ${orderIndex}`);
 
             return true;
-        } catch (err) {
-            console.error("Failed to upload photo to Convex:", err);
+        } catch {
             return false;
         }
     }, [generateUploadUrl, saveProfilePhotoMutation]);
@@ -246,15 +238,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         try {
             await deletePhotoMutation({ photoId: photoId as Id<"photos"> });
             return true;
-        } catch (err) {
-            console.error("Failed to delete photo from Convex:", err);
+        } catch {
             return false;
         }
     }, [deletePhotoMutation]);
 
-    const reorderPhotos = useCallback(async (_userId: string, photoIds: string[]): Promise<boolean> => {
-        // Mock reorder functionality for now
-        console.warn("reorderPhotos not yet bound to Convex");
+    const reorderPhotos = useCallback(async (_userId: string, _photoIds: string[]): Promise<boolean> => {
+        // Photo reordering not implemented — positions set at upload time
         return true;
     }, []);
 

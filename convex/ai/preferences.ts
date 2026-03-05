@@ -135,6 +135,9 @@ export const analyzeAndLearnPreferences = internalAction({
         const MIN_SWIPES = 3;
         if (rightSwipeIds.length < MIN_SWIPES) return;
 
+        // Cap to the most recent 100 right swipes to avoid N+1 at scale
+        const cappedRightSwipeIds = rightSwipeIds.slice(-100);
+
         // Profiles with a positive date feedback get 3× weight (real-world validation)
         const positiveFeedbackSet = new Set(positiveFeedbackIds);
 
@@ -149,7 +152,7 @@ export const analyzeAndLearnPreferences = internalAction({
             values: string[];
         }> = [];
 
-        for (const clerkId of rightSwipeIds) {
+        for (const clerkId of cappedRightSwipeIds) {
             const data = await ctx.runQuery(internal.ai.preferences.getLikedProfileData, { clerkId });
             if (data) likedProfiles.push(data);
         }

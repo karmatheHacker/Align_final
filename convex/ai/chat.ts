@@ -6,8 +6,7 @@ import { internal } from "../_generated/api";
 async function callGroqAI(systemPrompt: string, messages: { role: string; content: string }[]): Promise<string> {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-        console.error("GROQ_API_KEY is missing from Convex environment variables.");
-        throw new Error("GROQ_API_KEY is missing");
+        throw new Error("GROQ_API_KEY is missing from Convex environment variables.");
     }
 
     const controller = new AbortController();
@@ -30,7 +29,6 @@ async function callGroqAI(systemPrompt: string, messages: { role: string; conten
         signal: controller.signal,
     }).finally(() => clearTimeout(timeoutId));
     if (!response.ok) {
-        console.error(`Groq API Error (${response.status})`);
         throw new Error(`Groq error ${response.status}`);
     }
     const data: any = await response.json();
@@ -165,8 +163,6 @@ export const sendMessage = action({
         try {
             aiResponse = await callGroqAI(systemPrompt, apiMessages);
         } catch (error) {
-            console.error("Groq Chat Error:", error);
-            // Re-throw so the frontend can see the actual error during development
             throw error;
         }
 

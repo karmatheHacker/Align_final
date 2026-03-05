@@ -128,7 +128,7 @@ export default function WeeklyInsightsScreen() {
                             />
                             <StatCard
                                 label="AlignPoints"
-                                value={insights.apsReceived}
+                                value={insights.apsReceived ?? 0}
                                 trend={0}
                                 icon="zap-outline"
                                 color="#FFCC00"

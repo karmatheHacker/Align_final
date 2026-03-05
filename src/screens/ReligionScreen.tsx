@@ -41,9 +41,8 @@ const ReligionScreen: React.FC<ReligionScreenProps> = ({ onNext, onBack }) => {
     const handleNext = async () => {
         if (!religion) return;
         try {
-            await saveField({ religion: religion });
-        } catch (error) {
-            console.error("Failed to save religion:", error);
+            await saveField({ religion: religion }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'religion', value: religion });
         onNext();
@@ -51,9 +50,8 @@ const ReligionScreen: React.FC<ReligionScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ religion: null });
-        } catch (error) {
-            console.error("Failed to save religion skip:", error);
+            await saveField({ religion: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'religion', value: null });
         onNext();

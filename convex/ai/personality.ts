@@ -182,7 +182,7 @@ Tobacco: ${user.tobacco || "None"}`;
             const raw = await callGroq(systemPrompt, userPrompt);
             parsed = JSON.parse(raw);
         } catch (err) {
-            console.error("[Personality] Groq/parse error for", args.clerkId, err);
+            // Groq/parse error — use fallback personality defaults
             // Fallback defaults — unknown, not high
             parsed = {
                 values: [],

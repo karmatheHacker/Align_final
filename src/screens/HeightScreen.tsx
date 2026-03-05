@@ -137,9 +137,8 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
         const value = unit === 'FT' ? (feet * 12) + Number(inches) : cm;
         const heightData = { value, unit };
         try {
-            await saveField({ height: heightData });
-        } catch (error) {
-            console.error("Failed to save height:", error);
+            await saveField({ height: heightData }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'height', value: heightData });
         onNext();
@@ -147,9 +146,8 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
 
     const handleSkip = async () => {
         try {
-            await saveField({ height: null });
-        } catch (error) {
-            console.error("Failed to save height skip:", error);
+            await saveField({ height: null }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         onNext();
     };

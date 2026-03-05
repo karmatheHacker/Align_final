@@ -28,8 +28,8 @@ import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 let ImagePicker = null;
 try {
     ImagePicker = require('expo-image-picker');
-} catch (e) {
-    console.warn('ImagePicker module not found');
+} catch {
+    // expo-image-picker not available; photo upload will be disabled
 }
 
 // ---------------------------------------------------------------------------
@@ -181,14 +181,11 @@ const PhotosScreen = ({ onNext, onBack }: { onNext: () => void, onBack: () => vo
             await Promise.all(uploadPromises);
 
             // Sync final photo array to Convex users table in background
-            saveField({ photos: localUris }).catch(error => {
-                console.error("Failed to sync photos to Convex user table:", error);
-            });
+            saveField({ photos: localUris }).catch(() => undefined);
 
             dispatch({ type: 'SET_FIELD', field: 'photos', value: localUris });
             onNext();
-        } catch (err) {
-            console.error("Photo upload error:", err);
+        } catch {
             Alert.alert("Upload Failed", "Could not save your photos. Please check your connection and try again.");
             setIsUploading(false);
         }

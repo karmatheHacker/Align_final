@@ -31,4 +31,11 @@ crons.monthly(
     internal.ai.chat.pruneAllOldChatMessages
 );
 
+// Monthly (1st of month) at 4:00 AM UTC — delete expired AIM records
+crons.monthly(
+    "prune-expired-aims",
+    { day: 1, hourUTC: 4, minuteUTC: 0 },
+    internal.ai.aims.pruneExpiredAIMs
+);
+
 export default crons;

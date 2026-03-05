@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, Image, Animated,
-    StyleSheet, Modal, ActivityIndicator,
+    StyleSheet, Modal, ActivityIndicator, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -201,8 +201,8 @@ export default function MyProfileScreen() {
             // Clear local profile state
             setProfile(null);
             setShowDeleteModal(false);
-        } catch (err) {
-            console.error('Delete account failed:', err);
+        } catch {
+            Alert.alert('Error', 'Could not delete your account. Please try again.');
         } finally {
             setIsDeleting(false);
         }

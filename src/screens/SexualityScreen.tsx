@@ -34,9 +34,8 @@ const SexualityScreen: React.FC<SexualityScreenProps> = ({ onNext, onBack }) => 
     const handleNext = async () => {
         if (!selectedSexuality) return;
         try {
-            await saveField({ sexuality: selectedSexuality });
-        } catch (error) {
-            console.error("Failed to save sexuality:", error);
+            await saveField({ sexuality: selectedSexuality }); } catch {
+            // Save is best-effort; user proceeds regardless
         }
         dispatch({ type: 'SET_FIELD', field: 'sexuality', value: selectedSexuality });
         onNext();

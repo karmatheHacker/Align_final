@@ -41,9 +41,7 @@ const NameScreen: React.FC<NameScreenProps> = ({ onNext, onBack }) => {
         const value = sanitizeInput(firstName);
 
         // Fire and forget save to Convex
-        saveField({ firstName: value }).catch(error => {
-            console.error("Failed to save name:", error);
-        });
+        saveField({ firstName: value }).catch(() => undefined);
 
         dispatch({ type: 'SET_FIELD', field: 'firstName', value });
         onNext();

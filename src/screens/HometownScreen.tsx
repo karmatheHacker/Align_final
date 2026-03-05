@@ -104,7 +104,7 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
                     geocoded = true;
                 }
             } catch (geoErr) {
-                console.warn('Mapbox reverse geocoding failed:', geoErr);
+                // Geocoding failed; proceed with fallback
             }
 
             if (geocoded) {
@@ -143,15 +143,11 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
                 city: locationDetails.city,
                 region: locationDetails.region,
                 country: locationDetails.country
-            }).catch(error => {
-                console.error("Failed to save location to Convex:", error);
-            });
+            }).catch(() => undefined);
         }
 
         // Save hometown to Convex in background
-        saveField({ hometown: sanitizedHometown }).catch(error => {
-            console.error("Failed to save hometown to Convex:", error);
-        });
+        saveField({ hometown: sanitizedHometown }).catch(() => undefined);
 
         dispatch({ type: 'SET_FIELD', field: 'hometown', value: sanitizedHometown });
         dispatch({ type: 'SET_FIELD', field: 'location', value: city });
@@ -161,9 +157,7 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
 
     const handleSkip = async () => {
         // Save skip to Convex in background
-        saveField({ hometown: null, location: null, locationCoords: null }).catch(error => {
-            console.error("Failed to save hometown skip:", error);
-        });
+        saveField({ hometown: null, location: null, locationCoords: null }).catch(() => undefined);
         onNext();
     };
 
