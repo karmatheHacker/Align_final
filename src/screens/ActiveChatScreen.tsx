@@ -16,10 +16,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import COLORS from '../constants/colors';
 import { useChat, Message } from '../context/ChatContext';
+import { w, h, f, H_PAD } from '../utils/responsive';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const BLACK = COLORS.black;
@@ -51,6 +54,14 @@ export default function ActiveChatScreen() {
 
     const [inputText, setInputText] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [icebreakersDismissed, setIcebreakersDismissed] = useState(false);
+
+    // Icebreakers: look up the Convex match for this chat partner, then fetch their icebreakers
+    const convexMatch = useQuery(api.swipes.getMatchWithUser, receiverId ? { otherClerkId: receiverId } : 'skip');
+    const icebreakers = useQuery(
+        api.ai.icebreakers.getMyIcebreakerForMatch,
+        convexMatch?._id ? { matchId: convexMatch._id } : 'skip'
+    );
     const listRef = useRef<FlatList>(null);
 
     const { width: W } = Dimensions.get('window');
@@ -136,9 +147,9 @@ export default function ActiveChatScreen() {
                     <StatusBar style="dark" />
 
                     {/* ── Header ───────────────────────────────────────────── */}
-                    <View style={[styles.header, { height: 64 }]}>
+                    <View style={styles.header}>
                         <TouchableOpacity style={styles.iconButton} onPress={handleClose} activeOpacity={0.8}>
-                            <Ionicons name="chevron-back" size={20} color={BLACK} />
+                            <Ionicons name="chevron-back" size={w(20)} color={BLACK} />
                         </TouchableOpacity>
 
                         <View style={styles.headerTitleContainer}>
@@ -147,7 +158,7 @@ export default function ActiveChatScreen() {
                         </View>
 
                         <TouchableOpacity style={styles.iconButton} activeOpacity={0.8}>
-                            <Ionicons name="ellipsis-horizontal" size={20} color={BLACK} />
+                            <Ionicons name="ellipsis-horizontal" size={w(20)} color={BLACK} />
                         </TouchableOpacity>
                     </View>
 
@@ -161,15 +172,14 @@ export default function ActiveChatScreen() {
                             contentContainerStyle={styles.scrollContent}
                             showsVerticalScrollIndicator={false}
                             keyboardShouldPersistTaps="handled"
-                            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
                             ListHeaderComponent={
                                 <View style={styles.contextContainer}>
                                     <View style={styles.avatarWrapper}>
                                         {photo ? (
                                             <Image source={{ uri: photo }} style={styles.avatar} resizeMode="cover" />
                                         ) : (
-                                            <View style={[styles.avatar, { backgroundColor: '#222', alignItems: 'center', justifyContent: 'center' }]}>
-                                                <Text style={{ color: '#fff', fontFamily: 'Inter_900Black', fontSize: 32 }}>
+                                            <View style={[styles.avatar, { backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center' }]}>
+                                                <Text style={{ color: 'rgba(255,255,255,0.85)', fontFamily: 'Inter_900Black', fontSize: f(28) }}>
                                                     {matchName[0]}
                                                 </Text>
                                             </View>
@@ -180,16 +190,52 @@ export default function ActiveChatScreen() {
                                 </View>
                             }
                             ListEmptyComponent={
-                                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                                    <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: 'rgba(0,0,0,0.35)' }}>
+                                <View style={{ alignItems: 'center', paddingVertical: h(20) }}>
+                                    <Text style={{ fontFamily: 'Inter_500Medium', fontSize: f(13), color: 'rgba(0,0,0,0.35)' }}>
                                         Send the first message!
                                     </Text>
                                 </View>
                             }
                         />
 
+                        {/* ── Icebreaker Chips ──────────────────────────────── */}
+                        {icebreakers && !icebreakersDismissed && conversationMessages.length === 0 && (
+                            <View style={{ paddingHorizontal: w(16), paddingBottom: h(8) }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: h(8), gap: w(6) }}>
+                                    <Ionicons name="sparkles" size={w(12)} color={ORANGE} />
+                                    <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: f(9), color: 'rgba(0,0,0,0.45)', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                                        ALIGN ICEBREAKERS
+                                    </Text>
+                                    <TouchableOpacity onPress={() => setIcebreakersDismissed(true)} style={{ marginLeft: 'auto' }}>
+                                        <Ionicons name="close" size={w(14)} color="rgba(0,0,0,0.3)" />
+                                    </TouchableOpacity>
+                                </View>
+                                {[icebreakers.option1, icebreakers.option2, icebreakers.option3, icebreakers.bonus].map((text, i) => (
+                                    <TouchableOpacity
+                                        key={i}
+                                        activeOpacity={0.75}
+                                        onPress={() => { setInputText(text); setIcebreakersDismissed(true); }}
+                                        style={{
+                                            backgroundColor: i === 3 ? BLACK : 'rgba(0,0,0,0.06)',
+                                            borderRadius: w(14), paddingHorizontal: w(14), paddingVertical: h(10),
+                                            marginBottom: h(6),
+                                        }}
+                                    >
+                                        {i === 3 && (
+                                            <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: f(8), color: ORANGE, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: h(2) }}>
+                                                DEEP DIVE
+                                            </Text>
+                                        )}
+                                        <Text style={{ fontFamily: 'Inter_500Medium', fontSize: f(13), color: i === 3 ? CREAM : BLACK, lineHeight: f(19) }}>
+                                            {text}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+
                         {/* ── Input Area ────────────────────────────────────── */}
-                        <View style={[styles.inputContainer, { paddingBottom: 24 }]}>
+                        <View style={styles.inputContainer}>
                             <View style={styles.inputInner}>
                                 <View style={styles.inputBox}>
                                     <TextInput
@@ -200,8 +246,7 @@ export default function ActiveChatScreen() {
                                         onChangeText={setInputText}
                                         selectionColor={ORANGE}
                                         multiline
-                                        onSubmitEditing={handleSend}
-                                        blurOnSubmit={false}
+                                        submitBehavior="newline"
                                     />
                                     <TouchableOpacity
                                         activeOpacity={0.8}
@@ -217,7 +262,7 @@ export default function ActiveChatScreen() {
                                         ) : (
                                             <Ionicons
                                                 name="arrow-up"
-                                                size={18}
+                                                size={w(18)}
                                                 color={inputText.trim().length > 0 ? CREAM : 'rgba(0,0,0,0.4)'}
                                             />
                                         )}
@@ -238,85 +283,85 @@ const styles = StyleSheet.create({
     flex1: { flex: 1 },
 
     header: {
-        backgroundColor: 'rgba(245, 240, 235, 0.95)',
+        minHeight: h(64),
+        backgroundColor: 'rgba(245, 240, 235, 0.97)',
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(0, 0, 0, 0.05)',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 24,
+        paddingHorizontal: H_PAD,
         zIndex: 10,
     },
     iconButton: {
-        width: 44, height: 44, borderRadius: 22,
+        width: w(44), height: w(44), borderRadius: w(22),
         backgroundColor: '#FFFFFF',
-        borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.05)',
+        borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.07)',
         justifyContent: 'center', alignItems: 'center',
     },
     headerTitleContainer: { alignItems: 'center' },
     headerName: {
-        fontFamily: 'Inter_900Black', fontSize: 20,
-        color: BLACK, textTransform: 'uppercase', letterSpacing: -1,
+        fontFamily: 'Inter_900Black', fontSize: f(18),
+        color: BLACK, textTransform: 'uppercase', letterSpacing: -0.5,
     },
     headerStatus: {
-        fontFamily: 'Inter_800ExtraBold', fontSize: 10,
-        color: ORANGE, letterSpacing: 2, marginTop: 2,
+        fontFamily: 'Inter_800ExtraBold', fontSize: f(9),
+        color: ORANGE, letterSpacing: 2, marginTop: h(2),
     },
 
-    scrollContent: { paddingTop: 32, paddingHorizontal: 24, paddingBottom: 24 },
-    contextContainer: { alignItems: 'center', marginBottom: 48 },
+    scrollContent: { paddingTop: h(28), paddingHorizontal: H_PAD, paddingBottom: h(24) },
+    contextContainer: { alignItems: 'center', marginBottom: h(40) },
     avatarWrapper: {
-        padding: 4, borderRadius: 56,
-        borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', marginBottom: 16,
+        padding: w(4), borderRadius: w(56),
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', marginBottom: h(14),
     },
-    avatar: { width: 96, height: 96, borderRadius: 48 },
+    avatar: { width: w(88), height: w(88), borderRadius: w(44) },
     contextTitle: {
-        fontFamily: 'Inter_900Black', fontSize: 32,
-        color: BLACK, textTransform: 'uppercase', letterSpacing: -1, marginBottom: 8,
+        fontFamily: 'Inter_900Black', fontSize: f(24),
+        color: BLACK, textTransform: 'uppercase', letterSpacing: -1, marginBottom: h(6),
     },
     contextSubtext: {
-        fontFamily: 'Inter_800ExtraBold', fontSize: 10,
-        color: 'rgba(0,0,0,0.4)', letterSpacing: 2, textAlign: 'center',
+        fontFamily: 'Inter_800ExtraBold', fontSize: f(9),
+        color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textAlign: 'center',
     },
 
-    bubbleWrapper: { marginBottom: 24, maxWidth: '85%' },
+    bubbleWrapper: { marginBottom: h(18), maxWidth: '82%' },
     bubbleLeft: { alignSelf: 'flex-start' },
     bubbleRight: { alignSelf: 'flex-end' },
-    bubble: { paddingHorizontal: 20, paddingVertical: 14, borderRadius: 24 },
+    bubble: { paddingHorizontal: w(18), paddingVertical: h(11), borderRadius: w(22) },
     bubbleReceived: {
         backgroundColor: '#FFFFFF',
-        borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
-        borderTopLeftRadius: 4,
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.07)',
+        borderTopLeftRadius: w(4),
     },
-    bubbleSent: { backgroundColor: BLACK, borderTopRightRadius: 4 },
-    bubbleText: { fontFamily: 'Inter_500Medium', fontSize: 14, lineHeight: 20, letterSpacing: 0.2 },
+    bubbleSent: { backgroundColor: BLACK, borderTopRightRadius: w(4) },
+    bubbleText: { fontFamily: 'Inter_500Medium', fontSize: f(14), lineHeight: f(21), letterSpacing: 0.1 },
     timestamp: {
-        fontFamily: 'Inter_800ExtraBold', fontSize: 10,
-        color: 'rgba(0,0,0,0.4)', letterSpacing: 1.5,
-        textTransform: 'uppercase', marginTop: 6,
+        fontFamily: 'Inter_800ExtraBold', fontSize: f(9),
+        color: 'rgba(0,0,0,0.35)', letterSpacing: 1.5,
+        textTransform: 'uppercase', marginTop: h(5),
     },
 
     inputContainer: {
         backgroundColor: CREAM,
         borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)',
-        paddingTop: 16, paddingHorizontal: 24,
+        paddingTop: h(14), paddingHorizontal: H_PAD, paddingBottom: h(20),
     },
     inputInner: { flexDirection: 'row', alignItems: 'center' },
     inputBox: {
         flex: 1, flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#FFFFFF', borderRadius: 32, padding: 8,
-        borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05, shadowRadius: 12, elevation: 2,
+        backgroundColor: '#FFFFFF', borderRadius: w(32), padding: w(7),
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)',
+        shadowColor: '#000', shadowOffset: { width: 0, height: h(3) },
+        shadowOpacity: 0.04, shadowRadius: h(10), elevation: 2,
     },
     inputField: {
-        flex: 1, minHeight: 40, maxHeight: 120,
-        paddingHorizontal: 16, fontFamily: 'Inter_800ExtraBold',
-        fontSize: 11, letterSpacing: 2, color: BLACK,
-        textTransform: 'uppercase',
+        flex: 1, minHeight: h(40), maxHeight: h(120),
+        paddingHorizontal: w(14), fontFamily: 'Inter_500Medium',
+        fontSize: f(15), letterSpacing: 0.1, color: BLACK,
     },
     sendButton: {
-        width: 40, height: 40, borderRadius: 20,
-        justifyContent: 'center', alignItems: 'center', marginLeft: 8,
+        width: w(40), height: w(40), borderRadius: w(20),
+        justifyContent: 'center', alignItems: 'center', marginLeft: w(6),
     },
 });

@@ -14,6 +14,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 
 interface GenderScreenProps {
     onNext: () => void;
@@ -23,13 +24,19 @@ interface GenderScreenProps {
 const GenderScreen: React.FC<GenderScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [selectedGender, setSelectedGender] = useState<string | null>(state.gender || null);
 
     const currentIndex = STEP_ORDER.indexOf('gender');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!selectedGender) return;
+        try {
+            await saveField({ gender: selectedGender });
+        } catch (error) {
+            console.error("Failed to save gender:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'gender', value: selectedGender });
         onNext();
     };
@@ -102,7 +109,7 @@ const GenderScreen: React.FC<GenderScreenProps> = ({ onNext, onBack }) => {
 
             {/* Footer */}
             <FooterFadeIn
-                delay={500}
+                delay={650}
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity

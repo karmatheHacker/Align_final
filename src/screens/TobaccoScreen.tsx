@@ -19,6 +19,7 @@ import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 
 
 
@@ -33,18 +34,29 @@ interface TobaccoScreenProps {
 const TobaccoScreen: React.FC<TobaccoScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [tobacco, setTobacco] = useState<string | null>(state.tobacco || null);
 
     const currentIndex = STEP_ORDER.indexOf('tobacco');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!tobacco) return;
+        try {
+            await saveField({ tobacco: tobacco });
+        } catch (error) {
+            console.error("Failed to save tobacco usage:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'tobacco', value: tobacco });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        try {
+            await saveField({ tobacco: null });
+        } catch (error) {
+            console.error("Failed to save tobacco skip:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'tobacco', value: null });
         onNext();
     };
@@ -76,7 +88,7 @@ const TobaccoScreen: React.FC<TobaccoScreenProps> = ({ onNext, onBack }) => {
                     {/* Title */}
                     {/* Title - Local fix for rendering and removal of 'Your' */}
                     <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text 
+                        <Text
                             style={styles.title}
                             numberOfLines={1}
                             adjustsFontSizeToFit

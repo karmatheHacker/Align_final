@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useAction } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import COLORS from '../constants/colors';
 
 const BLACK = COLORS.black;
@@ -28,45 +30,13 @@ type Message = {
 };
 
 const INITIAL_PROMPTS = [
+    "Review my profile",
     "How do I rizz them up?",
     "What's a good first date idea?",
     "How should I reply to their last message?",
 ];
 
-const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY;
-
-const fetchAIResponse = async (userMessage: string, previousMessages: Message[]) => {
-    try {
-        const apiMessages = [
-            { role: "system", content: "You are Align AI, a personalized dating strategist. Be helpful, concise, witty, and encourage positive connection. Keep your answers short, ideally 1-3 sentences." },
-            ...previousMessages.map((m: Message) => ({ role: m.isAi ? "assistant" : "user", content: m.text })),
-            { role: "user", content: userMessage }
-        ];
-
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${GROQ_API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: "llama-3.1-8b-instant",
-                messages: apiMessages
-            })
-        });
-        const data = await response.json();
-
-        if (data.error) {
-            console.error("Groq API Error in response payload:", data.error.message);
-            return "Oops, something went wrong on my end. I'm taking a quick break!";
-        }
-
-        return data.choices?.[0]?.message?.content || "I'm sorry, I couldn't think of a response.";
-    } catch (error) {
-        console.error("Groq API Error:", error);
-        return "Oops, something went wrong connecting to my brain. Let's try again later!";
-    }
-};
+// ─── Groq API logic moved to Convex ──────────────────────────────────────────
 
 // ─── PromptPill ───────────────────────────────────────────────────────────────
 const PromptPill = ({
@@ -179,13 +149,22 @@ export default function AlignAIScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
 
-    const [messages, setMessages] = useState<Message[]>([]);
+    const chatHistory = useQuery(api.ai.chat.getMyAIChatHistory);
+    const sendMessageAction = useAction(api.ai.chat.sendMessage);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const scrollRef = useRef<ScrollView>(null);
     const screenOpacity = useRef(new Animated.Value(0)).current;
     const screenSlide = useRef(new Animated.Value(10)).current;
+
+    // Local messages override for optimistic UI or when loading
+    const messages: Message[] = (chatHistory || []).map((m: any) => ({
+        id: m._id,
+        text: m.text,
+        isAi: m.isAi
+    }));
 
     useEffect(() => {
         Animated.parallel([
@@ -201,32 +180,30 @@ export default function AlignAIScreen() {
     const handleSend = async (text: string) => {
         if (!text.trim()) return;
 
-        const userMsg: Message = { id: Date.now().toString(), text: text.trim(), isAi: false };
-        setMessages(prev => [...prev, userMsg]);
         setInputText('');
         setIsTyping(true);
         scrollToBottom();
 
-        // Fetch AI response
-        const responseText = await fetchAIResponse(text.trim(), messages);
-
-        setIsTyping(false);
-        const aiMsg: Message = {
-            id: (Date.now() + 1).toString(),
-            text: responseText,
-            isAi: true,
-        };
-        setMessages(prev => [...prev, aiMsg]);
-        scrollToBottom();
+        try {
+            setErrorMessage(null);
+            await sendMessageAction({ text: text.trim() });
+        } catch (err: any) {
+            console.error("Send message error:", err);
+            setErrorMessage(err.message || "Failed to send message. Please check the console.");
+        } finally {
+            setIsTyping(false);
+            scrollToBottom();
+        }
     };
 
-    const canSend = inputText.trim().length > 0;
+    const canSend = inputText.trim().length > 0 && !isTyping;
 
     return (
         <SafeAreaView style={styles.root}>
             <KeyboardAvoidingView
                 style={styles.flex1}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={0}
             >
                 <Animated.View
                     style={[
@@ -237,15 +214,15 @@ export default function AlignAIScreen() {
                     <StatusBar style="dark" />
 
                     {/* ── Header ──────────────────────────────────────────────────────── */}
-                    <View style={[styles.header, { paddingTop: 16 }]}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                            <Ionicons name="chevron-back" size={24} color={BLACK} />
-                        </TouchableOpacity>
-
-                        <View style={styles.titleRow}>
-                            {/* Star mark — uses a simple Unicode or Ionicons star */}
-                            <Ionicons name="sparkles" size={22} color={ORANGE} />
-                            <Text style={styles.headline}>ALIGN AI</Text>
+                    <View style={styles.header}>
+                        <View style={styles.headerTop}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                                <Ionicons name="chevron-back" size={24} color={BLACK} />
+                            </TouchableOpacity>
+                            <View style={styles.titleRow}>
+                                <Ionicons name="sparkles" size={20} color={ORANGE} />
+                                <Text style={styles.headline}>ALIGN AI</Text>
+                            </View>
                         </View>
                         <Text style={styles.subtitle}>YOUR PERSONAL DATING STRATEGIST</Text>
                     </View>
@@ -286,6 +263,13 @@ export default function AlignAIScreen() {
                                         />
                                     ))}
 
+                                    {errorMessage && (
+                                        <View style={styles.errorContainer}>
+                                            <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                                            <Text style={styles.errorText}>{errorMessage}</Text>
+                                        </View>
+                                    )}
+
                                     {/* AI typing indicator */}
                                     {isTyping && (
                                         <View
@@ -308,7 +292,7 @@ export default function AlignAIScreen() {
                         <View
                             style={[
                                 styles.inputContainer,
-                                { paddingBottom: 24 },
+                                { paddingBottom: Math.max(insets.bottom, 20) },
                             ]}
                         >
                             <View style={styles.inputPill}>
@@ -365,18 +349,24 @@ const styles = StyleSheet.create({
 
     // ── Header ────────────────────────────────────────────────────────────────
     header: {
-        paddingHorizontal: 28,
-        paddingBottom: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 18,
         backgroundColor: CREAM,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(13,13,13,0.06)',
+        borderBottomColor: 'rgba(13,13,13,0.05)',
+    },
+    headerTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 2,
     },
     backBtn: {
-        marginBottom: 12,
-        marginLeft: -6,
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
         justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: -10,
+        marginRight: 4,
     },
     titleRow: {
         flexDirection: 'row',
@@ -386,18 +376,19 @@ const styles = StyleSheet.create({
     },
     headline: {
         fontFamily: 'Inter_900Black',
-        fontSize: 44,
+        fontSize: 32,
         color: BLACK,
         textTransform: 'uppercase',
-        letterSpacing: -2,
-        lineHeight: 50,
+        letterSpacing: -1.5,
+        lineHeight: 38,
     },
     subtitle: {
         fontFamily: 'Inter_700Bold',
-        fontSize: 10,
-        color: 'rgba(13,13,13,0.45)',
-        letterSpacing: 2.5,
+        fontSize: 9,
+        color: 'rgba(13,13,13,0.4)',
+        letterSpacing: 2.2,
         textTransform: 'uppercase',
+        marginLeft: 34, // Align with title text
     },
 
     // ── Chat area ─────────────────────────────────────────────────────────────
@@ -544,5 +535,22 @@ const styles = StyleSheet.create({
     },
     sendBtnInactive: {
         backgroundColor: 'rgba(13,13,13,0.06)',
+    },
+    errorContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        backgroundColor: '#FEF2F2',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+        marginBottom: 16,
+        gap: 8,
+    },
+    errorText: {
+        fontFamily: 'Inter_500Medium',
+        fontSize: 13,
+        color: '#B91C1C',
+        flex: 1,
     },
 });

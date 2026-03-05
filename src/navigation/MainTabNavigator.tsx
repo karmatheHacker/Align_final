@@ -94,7 +94,7 @@ const TabTransitionWrapper = ({ children }: { children: React.ReactNode }) => {
     React.useEffect(() => {
         Animated.timing(animValue, {
             toValue: isFocused ? 1 : 0,
-            duration: 560,
+            duration: 200,
             easing: Easing.bezier(0.22, 1, 0.36, 1),
             useNativeDriver: true,
         }).start();
@@ -121,7 +121,7 @@ const WrappedProfile = () => <TabTransitionWrapper><ProfileNavigator /></TabTran
 // ---------------------------------------------------------------------------
 const ProfileTabIcon = ({ focused }: { focused: boolean }) => {
     const { profile } = useProfile();
-    const photoUrl = profile?.photo_urls?.[0];
+    const photoUrl = profile?.photos?.[0];
 
     return (
         <TabIconWrapper focused={focused}>
@@ -149,7 +149,6 @@ export default function MainTabNavigator() {
 
     return (
         <Tab.Navigator
-            detachInactiveScreens={false}
             screenOptions={{
                 headerShown: false,
                 tabBarShowLabel: false,

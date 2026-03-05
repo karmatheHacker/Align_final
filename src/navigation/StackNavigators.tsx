@@ -19,6 +19,7 @@ import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
 import ProfileDetailScreen from '../screens/ProfileDetailScreen';
 import ReportScreen from '../screens/ReportScreen';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
+import WeeklyInsightsScreen from '../screens/WeeklyInsightsScreen';
 
 // ---------------------------------------------------------------------------
 import { View, Text, StyleSheet } from 'react-native';
@@ -155,5 +156,6 @@ export const ProfileNavigator = () => (
         <ProfileStack.Screen name="Help" component={HelpScreen} />
         <ProfileStack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
         <ProfileStack.Screen name="Subscription" component={SubscriptionScreen} options={{ presentation: 'modal' }} />
+        <ProfileStack.Screen name="WeeklyInsights" component={WeeklyInsightsScreen} />
     </ProfileStack.Navigator>
 );

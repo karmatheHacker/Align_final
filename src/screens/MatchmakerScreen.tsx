@@ -4,8 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import COLORS from '../constants/colors';
-import { useProfile } from '../context/ProfileContext';
 import { w, h, f, SP, H_PAD } from '../utils/responsive';
 
 const BLACK = COLORS.black;
@@ -71,7 +72,7 @@ const MatchCard = ({
 
                 {description !== '' && (
                     <Text style={styles.cardDescription} numberOfLines={3}>
-                        {description.toUpperCase()}
+                        {description}
                     </Text>
                 )}
 
@@ -93,14 +94,25 @@ const MatchCard = ({
 export default function MatchmakerScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
-    const { discoveryFeed, fetchDiscoveryFeed, isLoading } = useProfile();
+
+    // Fetch live discovery profiles from Convex
+    const rawProfiles = useQuery(api.users.getDiscoveryProfiles, {});
+    const isLoading = rawProfiles === undefined;
+
+    const discoveryFeed = React.useMemo(() => {
+        if (!rawProfiles) return [];
+        return [...rawProfiles]
+            .sort((a, b) => (b.compatibility_score ?? 0) - (a.compatibility_score ?? 0))
+            .slice(0, 5);
+    }, [rawProfiles]);
+
     const [refreshing, setRefreshing] = React.useState(false);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await fetchDiscoveryFeed();
+        // useQuery handles revalidation automatically, but we can add a manual refresh if needed
         setRefreshing(false);
-    }, [fetchDiscoveryFeed]);
+    }, []);
 
     return (
         <View style={styles.root}>
@@ -133,17 +145,27 @@ export default function MatchmakerScreen() {
                         <ActivityIndicator size="large" color={BLACK} />
                     </View>
                 ) : discoveryFeed.length > 0 ? (
-                    discoveryFeed.slice(0, 5).map((profile: any, index: number) => (
+                    discoveryFeed.map((profile: any, index: number) => (
                         <MatchCard
-                            key={profile.clerk_id || profile.id || String(index)}
-                            profile={profile}
+                            key={profile._id}
+                            profile={{
+                                ...profile,
+                                name: profile.firstName,
+                                photo_url: profile.photos?.[0],
+                                compatibility_score: profile.compatibility_score ?? 0,
+                            }}
                             index={index}
-                            onPress={() => navigation.navigate('ProfileDetail', { clerk_id: profile.clerk_id || profile.id, compatibility_score: Math.round(profile.compatibility_score ?? profile.aim_score ?? 0) })}
+                            onPress={() => {
+                                navigation.navigate('ProfileDetail', {
+                                    userId: profile._id,
+                                    compatibility_score: profile.compatibility_score ?? 0,
+                                });
+                            }}
                         />
                     ))
                 ) : (
                     <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyTitle}>CALIBRATING</Text>
+                        <Text style={styles.emptyTitle}>SEARCHING</Text>
                         <Text style={styles.emptySubtext}>
                             ALIGN is building your daily matches.{'\n'}Complete your profile to get better alignments.
                         </Text>
@@ -172,35 +194,35 @@ const styles = StyleSheet.create({
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         paddingHorizontal: H_PAD, paddingTop: SP.md, paddingBottom: SP.sm,
     },
-    headerLogo: { fontFamily: 'Inter_900Black', fontSize: f(18), color: BLACK, fontStyle: 'italic', letterSpacing: -0.5 },
+    headerLogo: { fontFamily: 'Inter_900Black', fontSize: f(14), color: BLACK, letterSpacing: 2, textTransform: 'uppercase' },
     headerBadge: { backgroundColor: BLACK, paddingHorizontal: w(12), paddingVertical: h(5), borderRadius: w(18) },
     headerBadgeText: { fontFamily: 'Inter_900Black', fontSize: f(10), color: '#FFFFFF', letterSpacing: 1.5, textTransform: 'uppercase' },
 
-    heroBlock: { marginBottom: SP.xl, marginTop: SP.sm },
-    heroText: { fontFamily: 'Inter_900Black', fontSize: f(38), color: BLACK, letterSpacing: -2, lineHeight: f(38), textTransform: 'uppercase' },
+    heroBlock: { marginBottom: SP.lg, marginTop: SP.xs },
+    heroText: { fontFamily: 'Inter_900Black', fontSize: f(36), color: BLACK, letterSpacing: -2, lineHeight: f(40), textTransform: 'uppercase' },
 
     card: {
-        backgroundColor: BLACK, borderRadius: w(20), padding: w(18), marginBottom: SP.md,
-        shadowColor: '#000', shadowOffset: { width: 0, height: h(6) }, shadowOpacity: 0.1, shadowRadius: h(12), elevation: 6,
+        backgroundColor: BLACK, borderRadius: w(22), padding: w(20), marginBottom: SP.md,
+        shadowColor: '#000', shadowOffset: { width: 0, height: h(8) }, shadowOpacity: 0.12, shadowRadius: h(16), elevation: 6,
     },
-    cardTopPick: { borderLeftWidth: 5, borderLeftColor: ORANGE },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: SP.md },
-    cardName: { fontFamily: 'Inter_900Black', fontSize: f(28), fontStyle: 'italic', color: '#FFFFFF', letterSpacing: -1, flex: 1 },
-    cardScore: { fontFamily: 'Inter_900Black', fontSize: f(28), color: '#00C853', letterSpacing: -1 },
+    cardTopPick: { borderWidth: 2, borderColor: ORANGE },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: SP.sm },
+    cardName: { fontFamily: 'Inter_900Black', fontSize: f(26), fontStyle: 'italic', color: '#FFFFFF', letterSpacing: -0.5, flex: 1 },
+    cardScore: { fontFamily: 'Inter_800ExtraBold', fontSize: f(16), color: '#00C853', letterSpacing: 0.5 },
     cardDescription: {
-        fontFamily: 'Inter_700Bold', fontSize: f(11), color: 'rgba(255,255,255,0.85)',
-        textTransform: 'uppercase', lineHeight: f(18), letterSpacing: -0.2, marginBottom: SP.lg,
+        fontFamily: 'Inter_500Medium', fontSize: f(13), color: 'rgba(255,255,255,0.7)',
+        lineHeight: f(20), letterSpacing: 0.1, marginBottom: SP.md,
     },
     cardSharedContext: { fontFamily: 'Inter_800ExtraBold', fontSize: f(10), color: '#00C853', letterSpacing: 1.5, textTransform: 'uppercase' },
     topPickBadge: {
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
-        paddingHorizontal: w(10), paddingVertical: h(5),
-        alignSelf: 'flex-start', borderRadius: 4, marginTop: SP.sm,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+        paddingHorizontal: w(10), paddingVertical: h(4),
+        alignSelf: 'flex-start', borderRadius: w(4), marginTop: SP.sm,
     },
-    topPickText: { fontFamily: 'Inter_900Black', fontSize: f(9), color: '#FFFFFF', letterSpacing: 1.5 },
+    topPickText: { fontFamily: 'Inter_800ExtraBold', fontSize: f(9), color: 'rgba(255,255,255,0.8)', letterSpacing: 1.5 },
 
     emptyContainer: { alignItems: 'center', paddingVertical: h(60), paddingHorizontal: H_PAD },
-    emptyTitle: { fontFamily: 'Inter_900Black', fontSize: f(28), color: BLACK, letterSpacing: -1, marginBottom: SP.sm },
+    emptyTitle: { fontFamily: 'Inter_900Black', fontSize: f(22), color: BLACK, letterSpacing: -0.5, marginBottom: SP.sm },
     emptySubtext: {
         fontFamily: 'Inter_500Medium', fontSize: f(13), color: 'rgba(13,13,13,0.45)',
         textAlign: 'center', lineHeight: f(19),
@@ -209,8 +231,8 @@ const styles = StyleSheet.create({
     askBarContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: H_PAD },
     askBar: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: BLACK, paddingHorizontal: w(20), paddingVertical: h(16), borderRadius: w(32),
-        shadowColor: '#000', shadowOffset: { width: 0, height: h(10) }, shadowOpacity: 0.15, shadowRadius: h(20), elevation: 10,
+        backgroundColor: BLACK, paddingHorizontal: w(22), paddingVertical: h(14), borderRadius: w(32),
+        shadowColor: '#000', shadowOffset: { width: 0, height: h(12) }, shadowOpacity: 0.18, shadowRadius: h(24), elevation: 10,
     },
-    askBarText: { fontFamily: 'Inter_900Black', fontSize: f(12), color: '#FFFFFF', letterSpacing: 1, textTransform: 'uppercase' },
+    askBarText: { fontFamily: 'Inter_700Bold', fontSize: f(12), color: 'rgba(255,255,255,0.85)', letterSpacing: 0.5, textTransform: 'uppercase' },
 });

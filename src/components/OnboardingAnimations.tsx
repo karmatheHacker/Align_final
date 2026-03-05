@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, ViewStyle, Platform } from 'react-native';
+import { Animated, Easing, ViewStyle, Platform, StyleProp } from 'react-native';
 
 interface AnimationProps {
     children: React.ReactNode;
     delay?: number;
-    style?: ViewStyle | ViewStyle[];
+    style?: StyleProp<ViewStyle>;
     duration?: number;
 }
 

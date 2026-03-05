@@ -18,6 +18,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER } from '../constants/steps';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -41,6 +42,7 @@ const POLITICS_OPTIONS = [
 const PoliticsScreen: React.FC<PoliticsScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [politics, setPolitics] = useState<string | null>(state.politics || null);
 
     const currentIndex = STEP_ORDER.indexOf('politics');
@@ -57,13 +59,23 @@ const PoliticsScreen: React.FC<PoliticsScreenProps> = ({ onNext, onBack }) => {
         ).start();
     }, []);
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!politics) return;
+        try {
+            await saveField({ politics: politics });
+        } catch (error) {
+            console.error("Failed to save politics:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'politics', value: politics });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        try {
+            await saveField({ politics: null });
+        } catch (error) {
+            console.error("Failed to save politics skip:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'politics', value: null });
         onNext();
     };

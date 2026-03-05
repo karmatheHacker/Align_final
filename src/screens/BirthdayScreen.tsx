@@ -17,6 +17,7 @@ import StepIndicator from '../components/StepIndicator';
 import AgeConfirmationModal from '../components/AgeConfirmationModal';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 
 interface BirthdayScreenProps {
     onNext: () => void;
@@ -26,6 +27,7 @@ interface BirthdayScreenProps {
 const BirthdayScreen: React.FC<BirthdayScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
 
     const [day, setDay] = useState('');
     const [month, setMonth] = useState('');
@@ -74,9 +76,15 @@ const BirthdayScreen: React.FC<BirthdayScreenProps> = ({ onNext, onBack }) => {
         setShowModal(true);
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         const birthdayStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
         dispatch({ type: 'SET_FIELD', field: 'birthday', value: birthdayStr });
+
+        // Fire and forget save to Convex
+        saveField({ birthday: birthdayStr }).catch(error => {
+            console.error("Failed to save birthday:", error);
+        });
+
         setShowModal(false);
         onNext();
     };
@@ -176,11 +184,18 @@ const BirthdayScreen: React.FC<BirthdayScreenProps> = ({ onNext, onBack }) => {
 
             {/* Footer */}
             <FooterFadeIn
-                delay={500}
+                delay={650}
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
+                    style={[
+                        styles.btnContinue,
+                        !canContinue && styles.btnDisabled,
+                        {
+                            opacity: (month.trim().length > 0 || day.trim().length > 0 || year.trim().length > 0) ? 1 : 0,
+                            pointerEvents: (month.trim().length > 0 || day.trim().length > 0 || year.trim().length > 0) ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleContinue}
                     activeOpacity={0.8}
                     disabled={!canContinue}

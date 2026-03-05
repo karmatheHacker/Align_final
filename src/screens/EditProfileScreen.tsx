@@ -14,9 +14,10 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import COLORS from '../constants/colors';
 import { useProfile, ProfilePhoto } from '../context/ProfileContext';
-import { useUser } from '@clerk/clerk-expo';
 import { w, h, f, SP, H_PAD, SCREEN_W } from '../utils/responsive';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -144,10 +145,12 @@ const PhotoSlot = ({ uri, onRemove, onAdd }: { uri?: string; onRemove?: () => vo
     </TouchableOpacity>
 );
 
-// ─── Prompt Card ─────────────────────────────────────────────────────────────
 const PromptCard = ({ question, answer, onPress }: { question: string; answer: string; onPress: () => void }) => (
     <TouchableOpacity style={styles.promptCard} activeOpacity={0.7} onPress={onPress}>
-        <Text style={styles.promptQuestion}>{question}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Text style={[styles.promptQuestion, { flex: 1, marginRight: 8 }]}>{question}</Text>
+            <Feather name="edit-2" size={16} color={ORANGE} />
+        </View>
         <Text style={[styles.promptAnswer, !answer && styles.fieldValueEmpty]}>
             {answer || 'Tap to answer...'}
         </Text>
@@ -159,15 +162,17 @@ export default function EditProfileScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const {
-        profile, photos, prompts,
+        profile, photos, prompts: localPrompts,
         loadFullProfile,
         addPhoto, removePhoto,
         getFieldVisibility, setFieldVisibility,
     } = useProfile();
-    const { user } = useUser();
     const [isSaving, setIsSaving] = useState(false);
 
-    const userId = user?.id || profile?.id || '';
+    const convexUser = useQuery(api.users.getCurrentUser);
+    const prompts = convexUser?.prompts || [];
+
+    const userId = profile?.id || '';
 
     // Load full profile data on mount
     useEffect(() => {
@@ -178,8 +183,14 @@ export default function EditProfileScreen() {
 
     // ── Convenience getters ─────────────────────────────────────────────────
     const val = (field: string): string => {
-        if (!profile) return '';
-        const v = (profile as any)[field];
+        if (!convexUser) return '';
+        let key = field;
+        if (field === 'bio') key = 'publicBio';
+        else if (field === 'dating_intention') key = 'datingIntention';
+        else if (field === 'relationship_type') key = 'relationshipType';
+        else if (field === 'distance_preference') key = 'distancePreference';
+
+        const v = (convexUser as any)[key];
         if (v == null) return '';
         if (Array.isArray(v)) return v.join(', ');
         return String(v);
@@ -201,7 +212,7 @@ export default function EditProfileScreen() {
 
     // ── Calculate age from birthday ─────────────────────────────────────────
     const getAge = (): string => {
-        const bday = profile?.birthday;
+        const bday = convexUser?.birthday;
         if (!bday) return '';
         const birth = new Date(bday);
         const now = new Date();
@@ -308,8 +319,8 @@ export default function EditProfileScreen() {
                     <SectionHeader title="MY VITALS" />
                     <FieldRow
                         label="Name"
-                        value={val('name')}
-                        onPress={() => editField('name', val('name'))}
+                        value={val('firstName')}
+                        onPress={() => editField('firstName', val('firstName'))}
                     />
                     <FieldRow
                         label="Age"
@@ -319,23 +330,21 @@ export default function EditProfileScreen() {
                     />
                     <FieldRow
                         label="Height"
-                        value={formatHeight(
-                            profile?.height_value != null
-                                ? { value: profile.height_value, unit: profile.height_unit || 'FT' }
-                                : profile?.height
-                        )}
+                        value={formatHeight(convexUser?.height)}
                         onPress={() =>
-                            editField('height',
-                                profile?.height_value != null
-                                    ? { value: profile.height_value, unit: profile.height_unit || 'FT' }
-                                    : profile?.height
-                            )
+                            editField('height', convexUser?.height)
                         }
                         visibilityState={getFieldVisibility('height')}
                         onToggleVisibility={() => cycleVisibility('height')}
                     />
                     <FieldRow
                         label="Location"
+                        value={val('location')}
+                        onPress={() => { }}
+                        showChevron={false}
+                    />
+                    <FieldRow
+                        label="Hometown"
                         value={val('hometown')}
                         onPress={() => editField('hometown', val('hometown'))}
                         visibilityState={getFieldVisibility('hometown')}
@@ -361,7 +370,7 @@ export default function EditProfileScreen() {
                         onToggleVisibility={() => cycleVisibility('education')}
                     />
                     <FieldRow
-                        label="School"
+                        label="Institution"
                         value={val('school')}
                         onPress={() => editField('school', val('school'))}
                         visibilityState={getFieldVisibility('school')}
@@ -435,16 +444,16 @@ export default function EditProfileScreen() {
                     <View style={styles.mediaSubHeader}>
                         <Text style={styles.mediaSubHeaderText}>Prompts</Text>
                     </View>
-                    {prompts.length > 0 ? (
-                        prompts.map((p) => (
+                    {prompts && prompts.length > 0 ? (
+                        prompts.map((p: any, i: number) => (
                             <PromptCard
-                                key={p.id}
-                                question={p.prompt_question}
-                                answer={p.prompt_answer}
+                                key={p.id || i}
+                                question={p.question}
+                                answer={p.answer}
                                 onPress={() => navigation.navigate('EditPrompt', {
-                                    promptId: p.id,
-                                    question: p.prompt_question,
-                                    answer: p.prompt_answer,
+                                    promptId: p.id || String(i),
+                                    question: p.question,
+                                    answer: p.answer,
                                     userId,
                                 })}
                             />

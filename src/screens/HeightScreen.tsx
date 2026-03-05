@@ -16,6 +16,7 @@ import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import OnboardingHeading from '../components/OnboardingHeading';
 import SkipButton from '../components/SkipButton';
@@ -118,11 +119,13 @@ interface HeightScreenProps {
 const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
 
     const [unit, setUnit] = useState<'FT' | 'CM'>(state.height?.unit || 'FT');
     const [feet, setFeet] = useState(Math.floor((state.height?.value || 70) / 12));
     const [inches, setInches] = useState((state.height?.value || 70) % 12);
     const [cm, setCm] = useState(state.height?.unit === 'CM' ? state.height.value : 178);
+    const [hasInteracted, setHasInteracted] = useState(!!state.height);
 
     const currentIndex = STEP_ORDER.indexOf('height');
     const totalSteps = STEP_ORDER.length;
@@ -130,13 +133,24 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
     const stepConfig = STEP_CONFIG.find(s => s.id === 'height');
     const isRequired = stepConfig?.required ?? false;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         const value = unit === 'FT' ? (feet * 12) + Number(inches) : cm;
-        dispatch({ type: 'SET_FIELD', field: 'height', value: { value, unit } });
+        const heightData = { value, unit };
+        try {
+            await saveField({ height: heightData });
+        } catch (error) {
+            console.error("Failed to save height:", error);
+        }
+        dispatch({ type: 'SET_FIELD', field: 'height', value: heightData });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        try {
+            await saveField({ height: null });
+        } catch (error) {
+            console.error("Failed to save height skip:", error);
+        }
         onNext();
     };
 
@@ -159,7 +173,10 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
                     {/* Unit Toggle */}
                     <FadeUpView delay={350} style={styles.unitSelector}>
                         <TouchableOpacity
-                            onPress={() => setUnit('FT')}
+                            onPress={() => {
+                                setUnit('FT');
+                                setHasInteracted(true);
+                            }}
                             activeOpacity={0.7}
                             style={[styles.optionCard, unit === 'FT' && styles.optionCardSelected]}
                         >
@@ -169,7 +186,10 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
                             </View>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            onPress={() => setUnit('CM')}
+                            onPress={() => {
+                                setUnit('CM');
+                                setHasInteracted(true);
+                            }}
                             activeOpacity={0.7}
                             style={[styles.optionCard, unit === 'CM' && styles.optionCardSelected]}
                         >
@@ -188,13 +208,19 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
                                     label="FEET"
                                     options={[4, 5, 6, 7]}
                                     selectedValue={feet}
-                                    onSelect={setFeet}
+                                    onSelect={(val) => {
+                                        setFeet(val);
+                                        setHasInteracted(true);
+                                    }}
                                 />
                                 <PickerColumn
                                     label="INCHES"
                                     options={Array.from({ length: 12 }, (_, i) => i)}
                                     selectedValue={inches}
-                                    onSelect={setInches}
+                                    onSelect={(val) => {
+                                        setInches(val);
+                                        setHasInteracted(true);
+                                    }}
                                 />
                             </>
                         ) : (
@@ -202,7 +228,10 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
                                 label="CENTIMETERS"
                                 options={Array.from({ length: 91 }, (_, i) => i + 120)}
                                 selectedValue={cm}
-                                onSelect={setCm}
+                                onSelect={(val) => {
+                                    setCm(val);
+                                    setHasInteracted(true);
+                                }}
                             />
                         )}
                     </FadeUpView>
@@ -215,7 +244,13 @@ const HeightScreen: React.FC<HeightScreenProps> = ({ onNext, onBack }) => {
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={styles.btnContinue}
+                    style={[
+                        styles.btnContinue,
+                        {
+                            opacity: hasInteracted ? 1 : 0,
+                            pointerEvents: hasInteracted ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleNext}
                     activeOpacity={0.8}
                 >

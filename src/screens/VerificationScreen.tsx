@@ -14,13 +14,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
-import { useUser } from '@clerk/clerk-expo';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
 import { useOnboarding } from '../context/OnboardingContext';
+
+
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CIRCLE_SIZE = SCREEN_WIDTH * 0.6;
@@ -30,15 +34,16 @@ interface VerificationScreenProps {
     onBack: () => void;
 }
 
-const VERIFICATION_API_URL = process.env.EXPO_PUBLIC_VERIFICATION_API_URL || 'http://10.0.2.2:3000';
-
 const VerificationScreen: React.FC<VerificationScreenProps> = ({ onNext, onBack }) => {
     const insets = useSafeAreaInsets();
     const [permission, requestPermission] = useCameraPermissions();
     const [cameraType, setCameraType] = useState<CameraType>('front');
     const [isVerifying, setIsVerifying] = useState(false);
-    const { user } = useUser();
     const { state, dispatch } = useOnboarding();
+    const cameraRef = useRef<CameraView>(null);
+
+    const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+    const submitVerification = useMutation(api.verifications.submitVerification);
 
     const currentIndex = STEP_ORDER.indexOf('verification');
     const totalSteps = STEP_ORDER.length;
@@ -74,28 +79,34 @@ const VerificationScreen: React.FC<VerificationScreenProps> = ({ onNext, onBack 
     }, [permission]);
 
     const handleVerify = async () => {
+        if (!cameraRef.current || isVerifying) return;
         setIsVerifying(true);
         try {
-            const userId = user?.id || 'unknown';
-            const photoUrls = state.photos || [];
+            const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 });
+            if (!photo) throw new Error("Could not capture photo.");
 
-            const response = await fetch(`${VERIFICATION_API_URL}/verify-user`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, photoUrls }),
+            const uploadUrl = await generateUploadUrl();
+            if (!uploadUrl) throw new Error("Could not generate upload URL");
+
+            const response = await fetch(photo.uri);
+            const blob = await response.blob();
+
+            const result = await fetch(uploadUrl, {
+                method: "POST",
+                headers: { "Content-Type": blob.type },
+                body: blob,
             });
 
-            const result = await response.json();
+            if (!result.ok) throw new Error("Upload to storage failed");
+            const { storageId } = await result.json();
 
-            if (result.status === 'approved') {
-                dispatch({ type: 'SET_FIELD', field: 'verificationStatus', value: 'approved' });
-                onNext();
-            } else {
-                Alert.alert('Verification Failed', 'Verification was not approved. Please try again.');
-            }
-        } catch (err) {
-            console.error('Verification request error:', err);
-            Alert.alert('Connection Error', 'Could not reach the verification server. Please try again.');
+            await submitVerification({ storageId });
+
+            dispatch({ type: 'SET_FIELD', field: 'verificationStatus', value: 'pending' });
+            onNext();
+        } catch (err: any) {
+            console.error('Verification error:', err);
+            Alert.alert("Verification Error", "Could not submit your verification. Please try again.");
         } finally {
             setIsVerifying(false);
         }
@@ -166,6 +177,7 @@ const VerificationScreen: React.FC<VerificationScreenProps> = ({ onNext, onBack 
                         { transform: [{ scale: pulseAnim }] }
                     ]}>
                         <CameraView
+                            ref={cameraRef}
                             style={styles.camera}
                             facing={cameraType}
                         />
@@ -181,7 +193,7 @@ const VerificationScreen: React.FC<VerificationScreenProps> = ({ onNext, onBack 
 
             {/* Footer */}
             <FooterFadeIn
-                delay={600}
+                delay={100}
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity

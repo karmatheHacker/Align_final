@@ -16,6 +16,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER } from '../constants/steps';
 
 // ---------------------------------------------------------------------------
@@ -36,18 +37,29 @@ const DRUG_OPTIONS = [
 const DrugsScreen: React.FC<DrugsScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [drugs, setDrugs] = useState<string | null>(state.drugs || null);
 
     const currentIndex = STEP_ORDER.indexOf('drugs');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!drugs) return;
+        try {
+            await saveField({ drugs: drugs });
+        } catch (error) {
+            console.error("Failed to save drugs usage:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'drugs', value: drugs });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        try {
+            await saveField({ drugs: null });
+        } catch (error) {
+            console.error("Failed to save drugs skip:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'drugs', value: null });
         onNext();
     };

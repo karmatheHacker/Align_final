@@ -3,10 +3,11 @@ import { View, Text, FlatList, TouchableOpacity, Image, Animated, StyleSheet } f
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
+import { useUser } from '@clerk/clerk-expo';
 import COLORS from '../constants/colors';
 import { useChat, Conversation } from '../context/ChatContext';
-import { useUser } from '@clerk/clerk-expo';
 import { w, h, f, SP, H_PAD } from '../utils/responsive';
+import DateFeedbackBanner from '../components/DateFeedbackBanner';
 
 const BLACK = COLORS.black;
 const CREAM = COLORS.surface;
@@ -117,13 +118,14 @@ export default function ChatListScreen() {
                     <ChatCard item={item} currentUserId={user?.id || ''} />
                 )}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: h(100) }]}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + h(100) }]}
                 showsVerticalScrollIndicator={false}
                 onRefresh={fetchConversations}
                 refreshing={isLoading}
                 ListHeaderComponent={
                     <View style={[styles.header, { marginTop: insets.top + SP.xs }]}>
                         <Text style={styles.headline}>MESSAGES</Text>
+                        <DateFeedbackBanner />
                     </View>
                 }
                 ListEmptyComponent={
@@ -145,24 +147,24 @@ export default function ChatListScreen() {
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: CREAM },
     scrollContent: { paddingHorizontal: H_PAD },
-    header: { marginBottom: SP.lg },
-    headline: { fontFamily: 'Inter_900Black', fontSize: f(38), color: BLACK, letterSpacing: -2 },
+    header: { marginBottom: SP.md },
+    headline: { fontFamily: 'Inter_900Black', fontSize: f(36), color: BLACK, letterSpacing: -2 },
 
-    cardWrapper: { width: '100%', marginBottom: SP.sm },
+    cardWrapper: { width: '100%', marginBottom: h(6) },
     card: {
         width: '100%', flexDirection: 'row', alignItems: 'center',
-        padding: w(18), borderRadius: w(24),
+        padding: w(16), borderRadius: w(22),
         borderWidth: 1, borderColor: 'rgba(13,13,13,0.07)',
     },
     avatarContainer: {
-        width: w(52), height: w(52), borderRadius: w(24), marginRight: w(16),
-        overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(13,13,13,0.1)', backgroundColor: BLACK,
+        width: w(50), height: w(50), borderRadius: w(25), marginRight: w(14),
+        overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(13,13,13,0.08)', backgroundColor: BLACK,
     },
     contentContainer: { flex: 1, justifyContent: 'center' },
-    topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: SP.xs },
-    nameText: { fontFamily: 'Inter_900Black', fontSize: f(18), flex: 1, textTransform: 'uppercase' },
-    timeText: { fontFamily: 'Inter_800ExtraBold', fontSize: f(9), textTransform: 'uppercase', letterSpacing: 2, marginLeft: SP.sm },
-    previewText: { fontFamily: 'Inter_500Medium', fontSize: f(13) },
+    topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: h(3) },
+    nameText: { fontFamily: 'Inter_900Black', fontSize: f(16), flex: 1, textTransform: 'uppercase', letterSpacing: -0.3 },
+    timeText: { fontFamily: 'Inter_700Bold', fontSize: f(9), textTransform: 'uppercase', letterSpacing: 1.5, marginLeft: SP.sm, color: 'rgba(13,13,13,0.38)' },
+    previewText: { fontFamily: 'Inter_500Medium', fontSize: f(13), lineHeight: f(18) },
 
     unreadBadge: {
         backgroundColor: COLORS.primary, borderRadius: 100,

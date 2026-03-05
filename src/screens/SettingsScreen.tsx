@@ -1,10 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Animated, Easing, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Animated, Easing, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '@clerk/clerk-expo';
+
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '@clerk/clerk-expo';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import COLORS from '../constants/colors';
 import { w, h, f, SP, H_PAD } from '../utils/responsive';
 
@@ -19,6 +22,7 @@ const SECTIONS = [
         title: 'Account',
         items: [
             { label: 'Profile Information', icon: 'person' as IconName, sub: 'Name, bio, photos' },
+            { label: 'AI Weekly Insights', icon: 'bar-chart' as IconName, sub: 'Performance & matching tips', route: 'WeeklyInsights' },
             { label: 'Email Preferences', icon: 'mail-outline' as IconName, sub: 'Notifications & updates' },
         ],
     },
@@ -43,6 +47,29 @@ export default function SettingsScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { signOut } = useAuth();
+    const deleteAccount = useMutation(api.users.deleteCurrentAccount);
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            'Delete Account',
+            'This will permanently delete your account and all your data. This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await deleteAccount();
+                            await signOut();
+                        } catch (err) {
+                            Alert.alert('Error', 'Could not delete your account. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     const titleY = useRef(new Animated.Value(30)).current;
     const titleOpacity = useRef(new Animated.Value(0)).current;
@@ -137,7 +164,7 @@ export default function SettingsScreen() {
                         <View style={styles.sectionContainer}>
                             <Text style={styles.sectionTitle}>Danger Zone</Text>
                             <View style={styles.sectionBlock}>
-                                <TouchableOpacity activeOpacity={0.75} style={styles.itemRow} onPress={() => console.log('Delete account pressed')}>
+                                <TouchableOpacity activeOpacity={0.75} style={styles.itemRow} onPress={handleDeleteAccount}>
                                     <View style={[styles.itemIconBox, { backgroundColor: 'rgba(224,58,47,0.08)' }]}>
                                         <MaterialIcons name="delete-outline" size={w(16)} color="#E03A2F" />
                                     </View>

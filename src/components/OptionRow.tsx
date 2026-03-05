@@ -133,7 +133,7 @@ const OptionRow: React.FC<OptionRowProps> = memo(({
                         {description && (
                             <Text style={styles.optionDescription}>
                                 {description.split('Learn more')[0]}
-                                <Text style={{ color: activeColor, fontWeight: '600' }}>Learn more</Text>
+                                <Text style={{ color: activeColor, fontFamily: 'Inter_600SemiBold' }}>Learn more</Text>
                             </Text>
                         )}
                     </View>

@@ -2,16 +2,21 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 
 interface VerificationWaitScreenProps {
     onNext: () => void;
+    onBack?: () => void;
 }
 
-const VerificationWaitScreen: React.FC<VerificationWaitScreenProps> = ({ onNext }) => {
+const VerificationWaitScreen: React.FC<VerificationWaitScreenProps> = ({ onNext, onBack }) => {
     const insets = useSafeAreaInsets();
     const progress = useRef(new Animated.Value(0)).current;
+
+    const verificationStatus = useQuery(api.verifications.getMyVerificationStatus);
 
     // Spinning circle animation
     const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -22,15 +27,23 @@ const VerificationWaitScreen: React.FC<VerificationWaitScreenProps> = ({ onNext 
     const dot3 = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        // Progress bar
-        Animated.timing(progress, {
-            toValue: 1,
-            duration: 3500, // Slightly longer for "premium" feel
-            easing: Easing.linear,
-            useNativeDriver: false,
-        }).start(() => {
-            onNext();
-        });
+        // Indeterminate progress bar bouncing left and right visually
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(progress, {
+                    toValue: 1,
+                    duration: 1500,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: false,
+                }),
+                Animated.timing(progress, {
+                    toValue: 0,
+                    duration: 1500,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: false,
+                })
+            ])
+        ).start();
 
         // Spinning circle
         Animated.loop(
@@ -56,9 +69,15 @@ const VerificationWaitScreen: React.FC<VerificationWaitScreenProps> = ({ onNext 
         pulse(dot3, 300).start();
     }, []);
 
+    useEffect(() => {
+        if (verificationStatus === 'approved') {
+            onNext();
+        }
+    }, [verificationStatus, onNext]);
+
     const barWidth = progress.interpolate({
         inputRange: [0, 1],
-        outputRange: ['0%', '100%'],
+        outputRange: ['10%', '90%'],
     });
 
     const spin = rotateAnim.interpolate({
@@ -80,30 +99,48 @@ const VerificationWaitScreen: React.FC<VerificationWaitScreenProps> = ({ onNext 
 
                 {/* Center — Spinning Circle + Dots */}
                 <View style={styles.centerSection}>
-                    <Animated.View style={[styles.spinner, { transform: [{ rotate: spin }] }]}>
-                        <View style={styles.spinnerNeedle} />
-                    </Animated.View>
+                    {verificationStatus === 'rejected' ? (
+                        <Text style={[styles.statusLabel, { color: COLORS.error, fontSize: 16 }]}>
+                            VERIFICATION REJECTED.{'\n'}PLEASE TRY AGAIN OR CONTACT SUPPORT.
+                        </Text>
+                    ) : (
+                        <>
+                            <Animated.View style={[styles.spinner, { transform: [{ rotate: spin }] }]}>
+                                <View style={styles.spinnerNeedle} />
+                            </Animated.View>
 
-                    {/* Pulsing Dots */}
-                    <View style={styles.dotsRow}>
-                        <Animated.View style={[styles.dot, { backgroundColor: '#FFD600', transform: [{ scale: dot1 }] }]} />
-                        <Animated.View style={[styles.dot, { backgroundColor: '#E03A2F', transform: [{ scale: dot2 }] }]} />
-                        <Animated.View style={[styles.dot, { backgroundColor: '#00C853', transform: [{ scale: dot3 }] }]} />
-                    </View>
+                            {/* Pulsing Dots */}
+                            <View style={styles.dotsRow}>
+                                <Animated.View style={[styles.dot, { backgroundColor: '#FFD600', transform: [{ scale: dot1 }] }]} />
+                                <Animated.View style={[styles.dot, { backgroundColor: '#E03A2F', transform: [{ scale: dot2 }] }]} />
+                                <Animated.View style={[styles.dot, { backgroundColor: '#00C853', transform: [{ scale: dot3 }] }]} />
+                            </View>
 
-                    <Text style={styles.statusLabel}>
-                        SECURING YOUR DATA AND{'\n'}SETTING UP YOUR PROFILE SPACE
-                    </Text>
+                            <Text style={styles.statusLabel}>
+                                WAITING FOR MANUAL{'\n'}ADMIN VERIFICATION
+                            </Text>
+                        </>
+                    )}
                 </View>
 
-                {/* Bottom — Progress Bar */}
+                {/* Bottom — Progress Bar or Try Again */}
                 <View style={styles.footer}>
-                    <View style={styles.progressBarWrapper}>
-                        <Animated.View style={[styles.progressBarFill, { width: barWidth }]} />
-                    </View>
-                    <Text style={styles.waitText}>
-                        PLEASE WAIT
-                    </Text>
+                    {verificationStatus === 'rejected' ? (
+                        <View style={{ gap: 20, alignItems: 'center' }}>
+                            <Text style={styles.waitText} onPress={onBack}>
+                                TAP TO GO BACK AND TRY AGAIN
+                            </Text>
+                        </View>
+                    ) : (
+                        <>
+                            <View style={styles.progressBarWrapper}>
+                                <Animated.View style={[styles.progressBarFill, { width: barWidth, position: 'absolute' }]} />
+                            </View>
+                            <Text style={styles.waitText}>
+                                PLEASE WAIT FOR APPROVAL
+                            </Text>
+                        </>
+                    )}
                 </View>
             </View>
         </View>

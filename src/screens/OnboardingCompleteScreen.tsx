@@ -1,11 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
     Animated,
-    Dimensions,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
@@ -13,28 +13,26 @@ import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useProfile } from '../context/ProfileContext';
-import { useUser, useAuth } from '@clerk/clerk-expo';
-import { getAuthenticatedSupabase } from '../config/supabase';
-import { ProfileData } from '../services/profileService';
+import { useUser } from '@clerk/clerk-expo';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 interface OnboardingCompleteScreenProps {
     onNext: () => void;
 }
 
 const OnboardingCompleteScreen: React.FC<OnboardingCompleteScreenProps> = ({ onNext }) => {
-    // Animations
     const scaleAnim = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const btnFadeAnim = useRef(new Animated.Value(0)).current;
+    const [isFinishing, setIsFinishing] = useState(false);
 
     const { state } = useOnboarding();
+    const { setProfile } = useProfile();
     const { user } = useUser();
-    const { getToken } = useAuth();
-    const { setProfile, loadFullProfile } = useProfile();
-    const [isSaving, setIsSaving] = React.useState(false);
+    const completeOnboardingMutation = useMutation(api.users.completeOnboarding);
 
     useEffect(() => {
-        // Sequenced entrance
         Animated.sequence([
             Animated.parallel([
                 Animated.spring(scaleAnim, {
@@ -59,23 +57,14 @@ const OnboardingCompleteScreen: React.FC<OnboardingCompleteScreenProps> = ({ onN
     }, []);
 
     const handleFinish = async () => {
-        if (!user) {
-            onNext();
-            return;
-        }
+        if (isFinishing) return;
+        setIsFinishing(true);
 
-        setIsSaving(true);
         try {
-            const token = await getToken({ template: 'supabase' });
-            if (!token) throw new Error('No Supabase Token Formed');
-            const client = getAuthenticatedSupabase(token);
-
-            const distanceInt = parseInt(state.distancePreference, 10);
-
-            // 1. Upsert Profile Core Data
-            const profilePayload = {
-                id: user.id,
-                clerk_id: user.id,
+            // Save onboarding data to local profile context
+            setProfile({
+                id: 'local_user',
+                clerk_id: 'local_user',
                 name: state.firstName,
                 birthday: state.birthday,
                 gender: state.gender,
@@ -94,52 +83,19 @@ const OnboardingCompleteScreen: React.FC<OnboardingCompleteScreenProps> = ({ onN
                 drinking: state.drinking,
                 drugs: state.drugs,
                 bio: state.publicBio || state.bio,
+                photo_urls: state.photos || [],
                 verification_status: state.verificationStatus || 'unverified',
                 onboarding_completed: true,
-                updated_at: new Date().toISOString()
-            };
+                distance_preference: state.distancePreference,
+            });
 
-            const { error: pErr } = await client.from('profiles').upsert([profilePayload]);
-            if (pErr) throw pErr;
-
-            // 2. Upsert Preferences
-            await client.from('user_preferences').upsert([{
-                clerk_id: user.id,
-                preferences: { distance_max: isNaN(distanceInt) ? 50 : distanceInt },
-                updated_at: new Date().toISOString()
-            }]);
-
-            // 3. Upsert Onboarding Data
-            await client.from('onboarding_data').upsert([{
-                clerk_id: user.id,
-                raw_onboarding: state,
-                completed: true
-            }]);
-
-            // 4. Insert photo URLs directly (already uploaded during PhotosScreen)
-            if (state.photos && state.photos.length > 0) {
-                const photoRows = state.photos
-                    .filter((url: string) => !!url)
-                    .map((url: string, i: number) => ({
-                        clerk_id: user.id,
-                        photo_url: url,
-                        position: i,
-                    }));
-
-                if (photoRows.length > 0) {
-                    const { error: photoErr } = await client.from('photos').upsert(photoRows, { onConflict: 'clerk_id,position' });
-                    if (photoErr) console.warn('Photo insert warning:', photoErr.message);
-                }
+            if (user) {
+                await completeOnboardingMutation({ clerkId: user.id });
             }
-
-            // Sync Context
-            try { await loadFullProfile(user.id); } catch (_) { /* non-blocking */ }
             onNext();
-        } catch (error) {
-            console.error("Failed to save profile on completion:", error);
-            alert("Something went wrong saving your profile. Please try again.");
-        } finally {
-            setIsSaving(false);
+        } catch (err) {
+            console.error("Failed to complete onboarding", err);
+            setIsFinishing(false);
         }
     };
 
@@ -172,13 +128,19 @@ const OnboardingCompleteScreen: React.FC<OnboardingCompleteScreenProps> = ({ onN
                 {/* Footer Action */}
                 <Animated.View style={[styles.footer, { opacity: btnFadeAnim }]}>
                     <TouchableOpacity
-                        style={styles.btnEnter}
+                        style={[styles.btnEnter, isFinishing && { opacity: 0.7 }]}
                         onPress={handleFinish}
                         activeOpacity={0.9}
-                        disabled={isSaving}
+                        disabled={isFinishing}
                     >
-                        <Text style={styles.btnText}>{isSaving ? 'SAVING...' : 'ENTER ALIGN'}</Text>
-                        {!isSaving && <Feather name="arrow-right" size={20} color={COLORS.white} />}
+                        {isFinishing ? (
+                            <ActivityIndicator color={COLORS.white} />
+                        ) : (
+                            <>
+                                <Text style={styles.btnText}>ENTER ALIGN</Text>
+                                <Feather name="arrow-right" size={20} color={COLORS.white} />
+                            </>
+                        )}
                     </TouchableOpacity>
                 </Animated.View>
             </SafeAreaView>
@@ -189,7 +151,7 @@ const OnboardingCompleteScreen: React.FC<OnboardingCompleteScreenProps> = ({ onN
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.surface, // bg-cream
+        backgroundColor: COLORS.surface,
     },
     content: {
         flex: 1,

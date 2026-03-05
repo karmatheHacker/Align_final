@@ -16,6 +16,7 @@ import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 
 interface ChildrenScreenProps {
     onNext: () => void;
@@ -25,14 +26,30 @@ interface ChildrenScreenProps {
 const ChildrenScreen: React.FC<ChildrenScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [children, setChildren] = useState<string | null>(state.children || null);
 
     const currentIndex = STEP_ORDER.indexOf('children');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!children) return;
+        try {
+            await saveField({ children: children });
+        } catch (error) {
+            console.error("Failed to save children preference:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'children', value: children });
+        onNext();
+    };
+
+    const handleSkip = async () => {
+        try {
+            await saveField({ children: null });
+        } catch (error) {
+            console.error("Failed to save children skip:", error);
+        }
+        dispatch({ type: 'SET_FIELD', field: 'children', value: null });
         onNext();
     };
 

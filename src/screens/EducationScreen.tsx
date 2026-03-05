@@ -17,6 +17,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER } from '../constants/steps';
 
 interface EducationScreenProps {
@@ -27,13 +28,19 @@ interface EducationScreenProps {
 const EducationScreen: React.FC<EducationScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [education, setEducation] = useState<string | null>(state.education || null);
 
     const currentIndex = STEP_ORDER.indexOf('education');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!education) return;
+        try {
+            await saveField({ education: education });
+        } catch (error) {
+            console.error("Failed to save education:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'education', value: education });
         onNext();
     };
@@ -68,7 +75,7 @@ const EducationScreen: React.FC<EducationScreenProps> = ({ onNext, onBack }) => 
                 <View style={styles.mainContent}>
                     {/* Title */}
                     <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text 
+                        <Text
                             style={styles.title}
                             numberOfLines={1}
                             adjustsFontSizeToFit

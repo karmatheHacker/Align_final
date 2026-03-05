@@ -17,6 +17,7 @@ import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
 import { validateName, sanitizeInput } from '../utils/inputValidation';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 
 interface NameScreenProps {
     onNext: () => void;
@@ -26,6 +27,7 @@ interface NameScreenProps {
 const NameScreen: React.FC<NameScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [firstName, setFirstName] = useState(state.firstName || '');
 
     const currentIndex = STEP_ORDER.indexOf('name');
@@ -34,9 +36,16 @@ const NameScreen: React.FC<NameScreenProps> = ({ onNext, onBack }) => {
     const validation = validateName(firstName);
     const canContinue = validation.isValid;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!canContinue) return;
-        dispatch({ type: 'SET_FIELD', field: 'firstName', value: sanitizeInput(firstName) });
+        const value = sanitizeInput(firstName);
+
+        // Fire and forget save to Convex
+        saveField({ firstName: value }).catch(error => {
+            console.error("Failed to save name:", error);
+        });
+
+        dispatch({ type: 'SET_FIELD', field: 'firstName', value });
         onNext();
     };
 
@@ -91,11 +100,18 @@ const NameScreen: React.FC<NameScreenProps> = ({ onNext, onBack }) => {
 
             {/* Footer */}
             <FooterFadeIn
-                delay={500}
+                delay={650}
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
+                    style={[
+                        styles.btnContinue,
+                        !canContinue && styles.btnDisabled,
+                        {
+                            opacity: firstName.trim().length > 0 ? 1 : 0,
+                            pointerEvents: firstName.trim().length > 0 ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleNext}
                     activeOpacity={0.8}
                     disabled={!canContinue}

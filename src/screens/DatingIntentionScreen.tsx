@@ -15,6 +15,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 
 interface DatingIntentionScreenProps {
     onNext: () => void;
@@ -24,13 +25,19 @@ interface DatingIntentionScreenProps {
 const DatingIntentionScreen: React.FC<DatingIntentionScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [selectedIntention, setSelectedIntention] = useState<string | null>(state.datingIntention || null);
 
     const currentIndex = STEP_ORDER.indexOf('datingIntention');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!selectedIntention) return;
+        try {
+            await saveField({ datingIntention: selectedIntention });
+        } catch (error) {
+            console.error("Failed to save dating intention:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'datingIntention', value: selectedIntention });
         onNext();
     };
@@ -110,7 +117,7 @@ const DatingIntentionScreen: React.FC<DatingIntentionScreenProps> = ({ onNext, o
 
             {/* Footer */}
             <FooterFadeIn
-                delay={500}
+                delay={650}
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity

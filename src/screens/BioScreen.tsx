@@ -19,12 +19,14 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import SkipButton from '../components/SkipButton';
 import { validateBio, sanitizeInput } from '../utils/inputValidation';
 
 const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNext, onBack }) => {
     const { state, dispatch } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
 
     const [publicBio, setPublicBio] = useState(state.publicBio || '');
     const [aiBio, setAiBio] = useState(state.aiBio || '');
@@ -42,14 +44,26 @@ const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNex
 
     const canContinue = publicValidation.isValid && aiValidation.isValid;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!canContinue) return;
-        dispatch({ type: 'SET_FIELD', field: 'publicBio', value: sanitizeInput(publicBio) });
-        dispatch({ type: 'SET_FIELD', field: 'aiBio', value: sanitizeInput(aiBio) });
+        const sanitizedPublicBio = sanitizeInput(publicBio);
+        const sanitizedAiBio = sanitizeInput(aiBio);
+
+        // Fire and forget save to Convex
+        saveField({ publicBio: sanitizedPublicBio, aiBio: sanitizedAiBio }).catch(error => {
+            console.error("Failed to save bios:", error);
+        });
+
+        dispatch({ type: 'SET_FIELD', field: 'publicBio', value: sanitizedPublicBio });
+        dispatch({ type: 'SET_FIELD', field: 'aiBio', value: sanitizedAiBio });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        // Fire and forget save to Convex
+        saveField({ publicBio: null, aiBio: null }).catch(error => {
+            console.error("Failed to save bio skip:", error);
+        });
         onNext();
     };
 
@@ -173,7 +187,14 @@ const BioScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNex
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
+                    style={[
+                        styles.btnContinue,
+                        !canContinue && styles.btnDisabled,
+                        {
+                            opacity: (publicBio.trim().length > 0 || aiBio.trim().length > 0) ? 1 : 0,
+                            pointerEvents: (publicBio.trim().length > 0 || aiBio.trim().length > 0) ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleNext}
                     activeOpacity={0.8}
                     disabled={!canContinue}

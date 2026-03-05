@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View, StyleSheet, Platform, TextStyle, ViewStyle } from 'react-native';
+import { Text, View, StyleSheet, Platform, TextStyle, ViewStyle, StyleProp } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import { FadeUpView } from './OnboardingAnimations';
@@ -8,8 +8,8 @@ interface OnboardingHeadingProps {
     title: string;
     subtitle?: string; // Optional if we want "YOUR" small and "EDUCATION" big, but sticking to user's style
     delay?: number;
-    style?: TextStyle | TextStyle[];
-    containerStyle?: ViewStyle | ViewStyle[];
+    style?: StyleProp<TextStyle>;
+    containerStyle?: StyleProp<ViewStyle>;
     showAccent?: boolean;
 }
 

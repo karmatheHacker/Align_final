@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black } from '@expo-google-fonts/inter';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { OnboardingProvider } from './src/context/OnboardingContext';
-import { ProfileProvider, useProfile } from './src/context/ProfileContext';
+import { ProfileProvider } from './src/context/ProfileContext';
 import { ChatProvider } from './src/context/ChatContext';
 import { NotificationProvider } from './src/context/NotificationContext';
-import WelcomeScreen from './src/screens/WelcomeScreen';
+import { ClerkProviderWrapper } from './src/providers/ClerkProviderWrapper';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from './convex/_generated/api';
+import { WelcomeScreen } from './src/auth/WelcomeScreen';
 import NameScreen from './src/screens/NameScreen';
 import BirthdayScreen from './src/screens/BirthdayScreen';
 import GenderScreen from './src/screens/GenderScreen';
@@ -40,144 +44,73 @@ import { NavigationContainer } from '@react-navigation/native';
 import ChapterTransition from './src/components/ChapterTransition';
 import { CHAPTER_CONFIG, STEP_ORDER } from './src/constants/steps';
 import { theme } from './src/theme';
-import { ClerkProvider, useAuth, SignedIn, SignedOut } from '@clerk/clerk-expo';
-import * as SecureStore from 'expo-secure-store';
-import { useSupabaseAuth } from './src/hooks/useSupabaseAuth';
-
-const AuthSynchronizer = () => {
-  const { setSupabaseToken } = useSupabaseAuth();
-  const { isLoaded, isSignedIn } = useAuth();
-
-  React.useEffect(() => {
-    if (isLoaded) {
-      setSupabaseToken();
-    }
-  }, [isLoaded, isSignedIn]);
-
-  return null;
-};
-
-const AppOnboardingFlow = ({ step, setStep, renderStep, chapterLabel }: any) => {
-  const { userId } = useAuth();
-  const [isChecking, setIsChecking] = useState(true);
-  const { loadProfile } = useProfile();
-
-  React.useEffect(() => {
-    const checkProfile = async () => {
-      if (!userId) {
-        setIsChecking(false);
-        return;
-      }
-
-      try {
-        const profile = await loadProfile(userId);
-        if (profile && profile.onboarding_completed) {
-          setStep('dashboard');
-        } else if (step === 'welcome') {
-          setStep('name');
-        }
-      } catch (err) {
-        console.error('Profile check failed:', err);
-        if (step === 'welcome') {
-          setStep('name');
-        }
-      } finally {
-        setIsChecking(false);
-      }
-    };
-
-    checkProfile();
-  }, [userId]);
-
-  if (isChecking) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F0EB' }}>
-        <ActivityIndicator size="large" color="#000" />
-      </View>
-    );
-  }
-
-  return (
-    <>
-      {renderStep()}
-      <ChapterTransition chapterLabel={chapterLabel} />
-    </>
-  );
-};
-
-const tokenCache = {
-  async getToken(key: string) {
-    try {
-      const item = await SecureStore.getItemAsync(key);
-      if (item) {
-        console.log(`${key} was used 🔐 \n`);
-      } else {
-        console.log('No values stored under key: ' + key);
-      }
-      return item;
-    } catch (error) {
-      console.error('SecureStore get item error: ', error);
-      await SecureStore.deleteItemAsync(key);
-      return null;
-    }
-  },
-  async saveToken(key: string, value: string) {
-    try {
-      return SecureStore.setItemAsync(key, value);
-    } catch (err) {
-      return;
-    }
-  },
-};
-
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
-
-if (!publishableKey) {
-  throw new Error('Missing Publishable Key. Please set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env');
-}
 
 type OnboardingStep = 'welcome' | 'name' | 'birthday' | 'gender' | 'pronouns' | 'sexuality' | 'relationshipType' | 'datingIntention' | 'height' | 'hometown' | 'workplace' | 'education' | 'school' | 'religion' | 'politics' | 'children' | 'tobacco' | 'drinking' | 'drugs' | 'distance' | 'photos' | 'bio' | 'prompts' | 'verification' | 'verificationWait' | 'safety' | 'notifications' | 'complete' | 'dashboard';
 
-export default function App() {
-  const [step, setStep] = useState<OnboardingStep>('welcome');
+function InnerApp() {
+  const [step, setStep] = React.useState<OnboardingStep>('welcome');
 
   const currentChapter = CHAPTER_CONFIG.find(chapter =>
     chapter.steps.includes(step)
   );
   const chapterLabel = currentChapter ? currentChapter.label : null;
 
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
+
+  // Only query Convex if user is signed in
+  const convexUser = useQuery(api.users.getCurrentUser, isSignedIn ? undefined : "skip");
+  const createUser = useMutation(api.users.createUserIfNotExists);
+
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    Inter_800ExtraBold,
     Inter_900Black,
     PlayfairDisplay_700Bold,
   });
 
-  if (!fontsLoaded) {
+  // Effect to automatically route based on sign-in and onboarding status
+  React.useEffect(() => {
+    if (isLoaded && isSignedIn && convexUser !== undefined) {
+      const handleRouting = async () => {
+        // If we are on welcome screen or just started, determine where to go
+        if (step === 'welcome') {
+          if (convexUser === null && user) {
+            // New user signing up, create user in Convex
+            await createUser({
+              clerkId: user.id,
+              name: user.fullName || '',
+              email: user.primaryEmailAddress?.emailAddress || '',
+              imageUrl: user.imageUrl || '',
+            }).catch(err => console.error("Error creating user:", err));
+            setStep('name'); // Start onboarding
+          } else if (convexUser?.onboardingCompleted) {
+            setStep('dashboard');
+          } else if (convexUser) {
+            setStep('name'); // Continue onboarding if not completed
+          }
+        }
+      };
+      handleRouting();
+    } else if (isLoaded && !isSignedIn && step !== 'welcome') {
+      setStep('welcome'); // route back to sign in
+    }
+  }, [isLoaded, isSignedIn, convexUser, step, user, createUser]);
+
+  // Show nothing (or a loading view) while determining authentication status and pulling data
+  // We ALSO wait if isSignedIn is true but we haven't redirected away from 'welcome' yet
+  const isDeterminingRoute = isSignedIn && (convexUser === undefined || step === 'welcome');
+
+  if (!fontsLoaded || !isLoaded || isDeterminingRoute) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <StatusBar style="light" />
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar style="dark" />
       </View>
     );
   }
-
-  const handleNextStep = () => {
-    const currentIndex = STEP_ORDER.indexOf(step as any);
-    if (currentIndex >= 0 && currentIndex < STEP_ORDER.length - 1) {
-      setStep(STEP_ORDER[currentIndex + 1] as OnboardingStep);
-    } else {
-      setStep('dashboard'); // fallback
-    }
-  };
-
-  const handlePrevStep = () => {
-    const currentIndex = STEP_ORDER.indexOf(step as any);
-    if (currentIndex > 0) {
-      setStep(STEP_ORDER[currentIndex - 1] as OnboardingStep);
-    }
-  };
 
   const renderStep = () => {
     switch (step) {
@@ -348,6 +281,7 @@ export default function App() {
         return (
           <VerificationWaitScreen
             onNext={() => setStep('safety')}
+            onBack={() => setStep('verification')}
           />
         );
       case 'safety':
@@ -371,33 +305,31 @@ export default function App() {
   };
 
   return (
-    <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-      <AuthSynchronizer />
-      <NavigationContainer>
-        <ProfileProvider>
-          <NotificationProvider>
-            <ChatProvider>
-              <OnboardingProvider>
-                <SafeAreaProvider>
-                  <View style={styles.container}>
-                    <StatusBar style="dark" />
+    <NavigationContainer>
+      <ProfileProvider>
+        <NotificationProvider>
+          <ChatProvider>
+            <OnboardingProvider>
+              <SafeAreaProvider>
+                <View style={styles.container}>
+                  <StatusBar style="dark" />
+                  {renderStep()}
+                  <ChapterTransition chapterLabel={chapterLabel} />
+                </View>
+              </SafeAreaProvider>
+            </OnboardingProvider>
+          </ChatProvider>
+        </NotificationProvider>
+      </ProfileProvider>
+    </NavigationContainer>
+  );
+}
 
-                    <SignedIn>
-                      <AppOnboardingFlow step={step} setStep={setStep} renderStep={renderStep} chapterLabel={chapterLabel} />
-                    </SignedIn>
-
-                    <SignedOut>
-                      <WelcomeScreen onNext={() => setStep('name')} />
-                    </SignedOut>
-
-                  </View>
-                </SafeAreaProvider>
-              </OnboardingProvider>
-            </ChatProvider>
-          </NotificationProvider>
-        </ProfileProvider>
-      </NavigationContainer>
-    </ClerkProvider>
+export default function App() {
+  return (
+    <ClerkProviderWrapper>
+      <InnerApp />
+    </ClerkProviderWrapper>
   );
 }
 
@@ -405,9 +337,4 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  }
 });

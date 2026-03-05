@@ -16,6 +16,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER } from '../constants/steps';
 
 // ---------------------------------------------------------------------------
@@ -34,18 +35,29 @@ const DISTANCE_OPTIONS = [
 const DistancePreferenceScreen: React.FC<DistancePreferenceScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [distance, setDistance] = useState<string | null>(state.distancePreference || null);
 
     const currentIndex = STEP_ORDER.indexOf('distance');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!distance) return;
+
+        // Fire and forget save to Convex
+        saveField({ distancePreference: distance }).catch(error => {
+            console.error("Failed to save distance preference:", error);
+        });
+
         dispatch({ type: 'SET_FIELD', field: 'distancePreference', value: distance });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        // Fire and forget save to Convex
+        saveField({ distancePreference: null }).catch(error => {
+            console.error("Failed to save distance preference skip:", error);
+        });
         dispatch({ type: 'SET_FIELD', field: 'distancePreference', value: null });
         onNext();
     };

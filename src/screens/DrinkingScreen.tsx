@@ -18,6 +18,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER } from '../constants/steps';
 
 // ---------------------------------------------------------------------------
@@ -31,18 +32,29 @@ interface DrinkingScreenProps {
 const DrinkingScreen: React.FC<DrinkingScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [drinking, setDrinking] = useState<string | null>(state.drinking || null);
 
     const currentIndex = STEP_ORDER.indexOf('drinking');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!drinking) return;
+        try {
+            await saveField({ drinking: drinking });
+        } catch (error) {
+            console.error("Failed to save drinking habit:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'drinking', value: drinking });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        try {
+            await saveField({ drinking: null });
+        } catch (error) {
+            console.error("Failed to save drinking skip:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'drinking', value: null });
         onNext();
     };
@@ -74,7 +86,7 @@ const DrinkingScreen: React.FC<DrinkingScreenProps> = ({ onNext, onBack }) => {
                     {/* Title */}
                     {/* Title - Local fix for rendering and removal of 'Your' */}
                     <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text 
+                        <Text
                             style={styles.title}
                             numberOfLines={1}
                             adjustsFontSizeToFit

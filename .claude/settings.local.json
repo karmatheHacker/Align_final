@@ -24,7 +24,14 @@
       "Bash(npx kill-port 8081)",
       "Bash(npx expo start --clear -c)",
       "Bash(ipconfig)",
-      "Bash(netsh advfirewall firewall add rule name=\"Align Verification Server\" dir=in action=allow protocol=TCP localport=3000)"
+      "Bash(netsh advfirewall firewall add rule name=\"Align Verification Server\" dir=in action=allow protocol=TCP localport=3000)",
+      "Bash(powershell -Command \"netsh advfirewall firewall show rule name=''Align Server 3000'' 2>&1 | head -5\")",
+      "Bash(powershell -Command \"Start-Process powershell -Verb RunAs -ArgumentList ''netsh advfirewall firewall add rule name=\"\"Align Server 3000\"\" dir=in action=allow protocol=TCP localport=3000; pause'' -Wait\")",
+      "Bash(netsh advfirewall firewall add rule name=\"Align Server 3000\" dir=in action=allow protocol=TCP localport=3000)",
+      "Bash(netsh advfirewall firewall show rule name=\"Align Server 3000\")",
+      "Bash(wc -l /d/Align_Final/src/screens/*.tsx)",
+      "Bash(wc -l /d/Align_Final/src/components/*.tsx)",
+      "Bash(wc -l /d/Align_Final/src/navigation/*.tsx)"
     ]
   }
 }

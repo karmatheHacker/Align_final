@@ -13,14 +13,16 @@ import {
 } from 'react-native';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useOnboarding } from '../context/OnboardingContext';
+import { useProfile } from '../context/ProfileContext';
+import { useUser } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
-import { uploadFileToSupabase } from '../utils/storage';
-import { useUser, useAuth } from '@clerk/clerk-expo';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
+
 
 // Safe ImagePicker import to prevent crash on Dev Clients without the module
 let ImagePicker = null;
@@ -81,7 +83,10 @@ const MediaSlotItem = ({ item, index, onAction }: { item: MediaItem, index: numb
 // ---------------------------------------------------------------------------
 const PhotosScreen = ({ onNext, onBack }: { onNext: () => void, onBack: () => void }) => {
     const { dispatch, state } = useOnboarding();
+    const { addPhoto } = useProfile();
+    const { user } = useUser();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
 
     const initialMedia = [1, 2, 3, 4, 5, 6].map((idx) => {
         const existingUri = state.photos && state.photos[idx - 1];
@@ -93,8 +98,6 @@ const PhotosScreen = ({ onNext, onBack }: { onNext: () => void, onBack: () => vo
 
     const [mediaItems, setMediaItems] = useState(initialMedia);
     const [isUploading, setIsUploading] = useState(false);
-    const { user } = useUser();
-    const { getToken } = useAuth();
 
     const currentIndex = STEP_ORDER.indexOf('photos');
     const totalSteps = STEP_ORDER.length;
@@ -157,35 +160,36 @@ const PhotosScreen = ({ onNext, onBack }: { onNext: () => void, onBack: () => vo
 
     const handleNext = async () => {
         if (!canProceed || isUploading) return;
-
         setIsUploading(true);
+
         try {
-            // Get Clerk JWT for Supabase RLS authentication
-            const token = await getToken({ template: 'supabase' });
-            const urisToUpload = mediaItems.filter(i => !!i.uri).map(i => i.uri!);
-            const userId = user?.id || 'anonymous_user';
+            const localUris = mediaItems.filter(i => !!i.uri).map(i => i.uri!);
+            const clerkId = user ? user.id : 'local_user';
 
-            // Upload all photos to Supabase Storage
-            const uploadPromises = urisToUpload.map(async (localUri, index) => {
-                // If it's already an http URL (like the demo photo), skip upload
-                if (localUri.startsWith('http')) return localUri;
-
-                const fileExt = localUri.split('.').pop() || 'jpg';
-                const filePath = `${userId}/photo_${index}_${Date.now()}.${fileExt}`;
-
-                const publicUrl = await uploadFileToSupabase('profile_photos', filePath, localUri, token ?? undefined);
-                return publicUrl || localUri; // Fallback to local if upload totally fails
+            // Upload all photos in parallel for maximum speed
+            const uploadPromises = localUris.map((uri, index) => {
+                // If it's a local file, upload it
+                if (uri.startsWith('file://') || uri.startsWith('content://')) {
+                    return addPhoto(clerkId, uri, index);
+                }
+                // If it's already a remote URL, we don't strictly need to addPhoto again 
+                // but for consistency with the position we can still do it if the backend handles it.
+                return Promise.resolve();
             });
 
-            const uploadedUrls = await Promise.all(uploadPromises);
+            // Wait for all uploads to finish before final sync and navigation
+            await Promise.all(uploadPromises);
 
-            // Store the Supabase URLs in the Global State
-            dispatch({ type: 'SET_FIELD', field: 'photos', value: uploadedUrls });
+            // Sync final photo array to Convex users table in background
+            saveField({ photos: localUris }).catch(error => {
+                console.error("Failed to sync photos to Convex user table:", error);
+            });
+
+            dispatch({ type: 'SET_FIELD', field: 'photos', value: localUris });
             onNext();
         } catch (err) {
-            console.error('Error in photo upload flow:', err);
-            Alert.alert('Upload Failed', 'There was a problem uploading your photos. Please try again.');
-        } finally {
+            console.error("Photo upload error:", err);
+            Alert.alert("Upload Failed", "Could not save your photos. Please check your connection and try again.");
             setIsUploading(false);
         }
     };

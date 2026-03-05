@@ -18,6 +18,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import SkipButton from '../components/SkipButton';
 import { validateTextField, sanitizeInput } from '../utils/inputValidation';
 interface SchoolScreenProps {
@@ -28,6 +29,7 @@ interface SchoolScreenProps {
 const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [school, setSchool] = useState(state.school || '');
 
     const currentIndex = STEP_ORDER.indexOf('school');
@@ -42,13 +44,24 @@ const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
     const titleText = "INSTITUTION";
     const labelText = "Where did you study?";
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!canContinue) return;
-        dispatch({ type: 'SET_FIELD', field: 'school', value: sanitizeInput(school) });
+        const value = sanitizeInput(school);
+        try {
+            await saveField({ school: value });
+        } catch (error) {
+            console.error("Failed to save school:", error);
+        }
+        dispatch({ type: 'SET_FIELD', field: 'school', value: value });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        try {
+            await saveField({ school: null });
+        } catch (error) {
+            console.error("Failed to save school skip:", error);
+        }
         onNext();
     };
 
@@ -116,7 +129,14 @@ const SchoolScreen: React.FC<SchoolScreenProps> = ({ onNext, onBack }) => {
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
+                    style={[
+                        styles.btnContinue,
+                        !canContinue && styles.btnDisabled,
+                        {
+                            opacity: school.trim().length > 0 ? 1 : 0,
+                            pointerEvents: school.trim().length > 0 ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleNext}
                     activeOpacity={0.8}
                     disabled={!canContinue}

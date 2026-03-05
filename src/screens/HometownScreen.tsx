@@ -13,12 +13,16 @@ import {
 } from 'react-native';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { useUser } from '@clerk/clerk-expo';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import OnboardingHeading from '../components/OnboardingHeading';
 import SkipButton from '../components/SkipButton';
@@ -27,10 +31,14 @@ import { validateTextField, sanitizeInput } from '../utils/inputValidation';
 const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const { user: clerkUser } = useUser();
+    const saveLocation = useMutation(api.users.updateUserLocation);
+    const saveField = useUpdateOnboarding();
 
     const [hometown, setHometown] = useState(state.hometown || '');
     const [city, setCity] = useState(state.location || '');
     const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(state.locationCoords || null);
+    const [locationDetails, setLocationDetails] = useState<{ city: string; region: string; country: string } | null>(null);
     const [locStatus, setLocStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [locError, setLocError] = useState<string | null>(null);
 
@@ -62,17 +70,58 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
             const { latitude, longitude } = locationData.coords;
             setCoords({ latitude, longitude });
 
-            const reverseGeocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-            if (reverseGeocode.length > 0) {
-                const { city: detCity, region, country } = reverseGeocode[0];
-                const displayCity = detCity || region || 'Unknown Location';
-                const fullLocation = detCity && region ? `${detCity}, ${region}` : (detCity || region || country || 'Detected Location');
+            let detCity = '';
+            let detRegion = '';
+            let detCountry = '';
+            let geocoded = false;
 
-                setCity(fullLocation);
+            const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+            try {
+                const response = await fetch(
+                    `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_TOKEN}&types=place,region,country`
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Mapbox returned ${response.status}`);
+                }
+
+                const data = await response.json();
+                const features: Array<{ place_type: string[]; text: string }> = data.features || [];
+
+                for (const feature of features) {
+                    if (feature.place_type?.includes('place') && !detCity) {
+                        detCity = feature.text || '';
+                    }
+                    if (feature.place_type?.includes('region') && !detRegion) {
+                        detRegion = feature.text || '';
+                    }
+                    if (feature.place_type?.includes('country') && !detCountry) {
+                        detCountry = feature.text || '';
+                    }
+                }
+
+                if (detCity || detRegion || detCountry) {
+                    geocoded = true;
+                }
+            } catch (geoErr) {
+                console.warn('Mapbox reverse geocoding failed:', geoErr);
+            }
+
+            if (geocoded) {
+                const formattedLocation = detCity && detRegion
+                    ? `${detCity}, ${detRegion}`
+                    : (detCity || detRegion || detCountry || 'Detected Location');
+
+                setCity(formattedLocation);
+                setLocationDetails({
+                    city: detCity,
+                    region: detRegion,
+                    country: detCountry
+                });
                 setLocStatus('success');
             } else {
                 setLocStatus('error');
-                setLocError('Unable to detect city name.');
+                setLocError('Unable to detect city name. Please type manually.');
             }
         } catch (e) {
             setLocStatus('error');
@@ -80,15 +129,41 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
         }
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!canContinue) return;
-        dispatch({ type: 'SET_FIELD', field: 'hometown', value: sanitizeInput(hometown) });
+
+        const sanitizedHometown = sanitizeInput(hometown);
+
+        // Save location details to Convex in background
+        if (coords && locationDetails && clerkUser) {
+            saveLocation({
+                clerkId: clerkUser.id,
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                city: locationDetails.city,
+                region: locationDetails.region,
+                country: locationDetails.country
+            }).catch(error => {
+                console.error("Failed to save location to Convex:", error);
+            });
+        }
+
+        // Save hometown to Convex in background
+        saveField({ hometown: sanitizedHometown }).catch(error => {
+            console.error("Failed to save hometown to Convex:", error);
+        });
+
+        dispatch({ type: 'SET_FIELD', field: 'hometown', value: sanitizedHometown });
         dispatch({ type: 'SET_FIELD', field: 'location', value: city });
         dispatch({ type: 'SET_FIELD', field: 'locationCoords', value: coords });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        // Save skip to Convex in background
+        saveField({ hometown: null, location: null, locationCoords: null }).catch(error => {
+            console.error("Failed to save hometown skip:", error);
+        });
         onNext();
     };
 
@@ -190,7 +265,14 @@ const HometownScreen: React.FC<{ onNext: () => void; onBack: () => void }> = ({ 
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
+                    style={[
+                        styles.btnContinue,
+                        !canContinue && styles.btnDisabled,
+                        {
+                            opacity: hometown.trim().length > 0 ? 1 : 0,
+                            pointerEvents: hometown.trim().length > 0 ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleNext}
                     activeOpacity={0.8}
                     disabled={!canContinue}

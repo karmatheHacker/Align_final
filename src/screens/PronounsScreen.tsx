@@ -17,6 +17,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import SkipButton from '../components/SkipButton';
 
@@ -40,6 +41,7 @@ const PRONOUN_OPTIONS = [
 const PronounsScreen: React.FC<PronounsScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
 
     const [selectedPronouns, setSelectedPronouns] = useState<string[]>(state.pronouns || []);
     const [customPronoun, setCustomPronoun] = useState('');
@@ -66,7 +68,7 @@ const PronounsScreen: React.FC<PronounsScreenProps> = ({ onNext, onBack }) => {
         }
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         const finalPronouns = [...selectedPronouns];
         if (customPronoun.trim().length > 0) {
             finalPronouns.push(customPronoun.trim().toUpperCase());
@@ -74,12 +76,21 @@ const PronounsScreen: React.FC<PronounsScreenProps> = ({ onNext, onBack }) => {
 
         if (finalPronouns.length === 0) return;
 
+        try {
+            await saveField({ pronouns: finalPronouns });
+        } catch (error) {
+            console.error("Failed to save pronouns:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'pronouns', value: finalPronouns });
         onNext();
     };
 
-    const handleSkip = () => {
-        // Skip behavior behaves exactly like continue, but without saving required input
+    const handleSkip = async () => {
+        try {
+            await saveField({ pronouns: null });
+        } catch (error) {
+            console.error("Failed to save pronouns skip:", error);
+        }
         onNext();
     };
 
@@ -160,14 +171,21 @@ const PronounsScreen: React.FC<PronounsScreenProps> = ({ onNext, onBack }) => {
 
             {/* Footer */}
             <FooterFadeIn
-                delay={900}
+                delay={650}
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !canProceed && styles.btnDisabled]}
+                    style={[
+                        styles.btnContinue,
+                        !hasInput && styles.btnDisabled,
+                        {
+                            opacity: hasInput ? 1 : 0,
+                            pointerEvents: hasInput ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleNext}
                     activeOpacity={0.8}
-                    disabled={!canProceed}
+                    disabled={!hasInput}
                 >
                     <Text style={styles.btnText}>Continue</Text>
                     <Feather name="arrow-right" size={20} color={COLORS.white} />

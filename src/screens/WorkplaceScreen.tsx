@@ -18,6 +18,7 @@ import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import SkipButton from '../components/SkipButton';
 import { validateTextField, sanitizeInput } from '../utils/inputValidation';
@@ -33,6 +34,7 @@ interface WorkplaceScreenProps {
 const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [workplace, setWorkplace] = useState(state.workplace || '');
 
     const currentIndex = STEP_ORDER.indexOf('workplace');
@@ -44,13 +46,24 @@ const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => 
     const validation = validateTextField(workplace, 100, !isRequired);
     const canContinue = validation.isValid;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!canContinue) return;
-        dispatch({ type: 'SET_FIELD', field: 'workplace', value: sanitizeInput(workplace) });
+        const value = sanitizeInput(workplace);
+        try {
+            await saveField({ workplace: value });
+        } catch (error) {
+            console.error("Failed to save workplace:", error);
+        }
+        dispatch({ type: 'SET_FIELD', field: 'workplace', value });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        try {
+            await saveField({ workplace: null });
+        } catch (error) {
+            console.error("Failed to save workplace skip:", error);
+        }
         onNext();
     };
 
@@ -116,7 +129,14 @@ const WorkplaceScreen: React.FC<WorkplaceScreenProps> = ({ onNext, onBack }) => 
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !canContinue && styles.btnDisabled]}
+                    style={[
+                        styles.btnContinue,
+                        !canContinue && styles.btnDisabled,
+                        {
+                            opacity: workplace.trim().length > 0 ? 1 : 0,
+                            pointerEvents: workplace.trim().length > 0 ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleNext}
                     activeOpacity={0.8}
                     disabled={!canContinue}

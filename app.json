@@ -12,7 +12,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "ok",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,16 +26,20 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "package": "com.bhosadaking.Align_Final"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-font",
-      "expo-asset",
-      "expo-web-browser",
-      "expo-secure-store"
-    ]
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e966fdcc-ebe5-4c73-979a-9bf23a743a71"
+      }
+    }
   }
 }

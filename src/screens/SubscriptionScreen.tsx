@@ -66,7 +66,7 @@ const FeatureRow = ({ text, dark }: { text: string; dark: boolean }) => (
             <Check size={10} strokeWidth={3} color={dark ? ORANGE : BLACK} />
         </View>
         <Text style={{
-            fontSize: 13, fontWeight: '500', flex: 1, lineHeight: 19,
+            fontFamily: 'Inter_500Medium', fontSize: 13, flex: 1, lineHeight: 19,
             color: dark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.65)',
         }}>{text}</Text>
     </View>
@@ -90,12 +90,12 @@ const APBundleCard = ({ aps, price, badge }: { aps: number; price: number; badge
     >
         {badge && (
             <View style={{ backgroundColor: ORANGE, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, marginBottom: 10 }}>
-                <Text style={{ fontSize: 8, fontWeight: '900', color: CREAM, letterSpacing: 1.5, textTransform: 'uppercase' }}>{badge}</Text>
+                <Text style={{ fontFamily: 'Inter_900Black', fontSize: 8, color: CREAM, letterSpacing: 1.5, textTransform: 'uppercase' }}>{badge}</Text>
             </View>
         )}
-        <Text style={{ fontSize: 40, fontWeight: '900', color: BLACK, letterSpacing: -2, lineHeight: 42 }}>{aps}</Text>
-        <Text style={{ fontSize: 9, fontWeight: '800', color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 2, marginBottom: 10 }}>APs</Text>
-        <Text style={{ fontSize: 17, fontWeight: '800', color: BLACK, letterSpacing: -0.5 }}>₹{price}</Text>
+        <Text style={{ fontFamily: 'Inter_900Black', fontSize: 40, color: BLACK, letterSpacing: -2, lineHeight: 42 }}>{aps}</Text>
+        <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: 9, color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 2, marginBottom: 10 }}>APs</Text>
+        <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: 17, color: BLACK, letterSpacing: -0.5 }}>₹{price}</Text>
     </TouchableOpacity>
 );
 
@@ -130,7 +130,7 @@ const SubscriptionScreen = () => {
             <SafeAreaView style={{ flex: 1 }}>
                 {/* Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 12 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '900', color: ORANGE, letterSpacing: 2, textTransform: 'uppercase' }}>Align Premium</Text>
+                    <Text style={{ fontFamily: 'Inter_900Black', fontSize: 11, color: ORANGE, letterSpacing: 2, textTransform: 'uppercase' }}>Align Premium</Text>
                     <TouchableOpacity
                         onPress={() => navigation.goBack()}
                         style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.06)', alignItems: 'center', justifyContent: 'center' }}
@@ -144,10 +144,10 @@ const SubscriptionScreen = () => {
 
                     {/* ── Hero ── */}
                     <Animated.View style={{ opacity: titleOpacity, transform: [{ translateY: titleY }], marginTop: 8, marginBottom: 28 }}>
-                        <Text style={{ fontSize: 64, fontWeight: '900', color: BLACK, letterSpacing: -2.5, lineHeight: 60, textTransform: 'uppercase' }}>
+                        <Text style={{ fontFamily: 'Inter_900Black', fontSize: 64, color: BLACK, letterSpacing: -2.5, lineHeight: 60, textTransform: 'uppercase' }}>
                             UNLOCK{'\n'}MORE.
                         </Text>
-                        <Text style={{ fontSize: 13, fontWeight: '500', color: 'rgba(0,0,0,0.45)', marginTop: 10 }}>
+                        <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: 'rgba(0,0,0,0.45)', marginTop: 10 }}>
                             More APs. More reach. More control.
                         </Text>
                     </Animated.View>
@@ -161,15 +161,15 @@ const SubscriptionScreen = () => {
                             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                         }}>
                             <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 9, fontWeight: '800', color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 5 }}>Current Plan</Text>
-                                <Text style={{ fontSize: 20, fontWeight: '900', color: BLACK, letterSpacing: -0.5, textTransform: 'uppercase', marginBottom: 6 }}>Free</Text>
-                                <Text style={{ fontSize: 11, fontWeight: '500', color: 'rgba(0,0,0,0.4)', lineHeight: 17 }}>
+                                <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: 9, color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 5 }}>Current Plan</Text>
+                                <Text style={{ fontFamily: 'Inter_900Black', fontSize: 20, color: BLACK, letterSpacing: -0.5, textTransform: 'uppercase', marginBottom: 6 }}>Free</Text>
+                                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: 'rgba(0,0,0,0.4)', lineHeight: 17 }}>
                                     3 APs / week · Resets monthly{'\n'}No priority ranking · Basic AI only
                                 </Text>
                             </View>
                             <View style={{ backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, alignItems: 'center', marginLeft: 16 }}>
-                                <Text style={{ fontSize: 32, fontWeight: '900', color: BLACK, letterSpacing: -1, lineHeight: 34 }}>3</Text>
-                                <Text style={{ fontSize: 9, fontWeight: '800', color: 'rgba(0,0,0,0.4)', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 2 }}>AP / wk</Text>
+                                <Text style={{ fontFamily: 'Inter_900Black', fontSize: 32, color: BLACK, letterSpacing: -1, lineHeight: 34 }}>3</Text>
+                                <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: 9, color: 'rgba(0,0,0,0.4)', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 2 }}>AP / wk</Text>
                             </View>
                         </View>
 
@@ -186,12 +186,12 @@ const SubscriptionScreen = () => {
                                         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
                                     }}
                                 >
-                                    <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', color: billing === b ? CREAM : 'rgba(0,0,0,0.45)' }}>
+                                    <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: billing === b ? CREAM : 'rgba(0,0,0,0.45)' }}>
                                         {b === 'monthly' ? 'Monthly' : 'Yearly'}
                                     </Text>
                                     {b === 'yearly' && (
                                         <View style={{ backgroundColor: ORANGE, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 }}>
-                                            <Text style={{ fontSize: 8, fontWeight: '900', color: CREAM, letterSpacing: 1 }}>SAVE {SAVE_PCT}%</Text>
+                                            <Text style={{ fontFamily: 'Inter_900Black', fontSize: 8, color: CREAM, letterSpacing: 1 }}>SAVE {SAVE_PCT}%</Text>
                                         </View>
                                     )}
                                 </TouchableOpacity>
@@ -199,7 +199,7 @@ const SubscriptionScreen = () => {
                         </View>
 
                         {/* ── Section label ── */}
-                        <Text style={{ fontSize: 10, fontWeight: '800', color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>
+                        <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: 10, color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>
                             CHOOSE YOUR PLAN
                         </Text>
 
@@ -207,16 +207,16 @@ const SubscriptionScreen = () => {
                         <View style={{ backgroundColor: WHITE, borderRadius: 24, borderWidth: 2, borderColor: 'rgba(0,0,0,0.1)', padding: 24, marginBottom: 16 }}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
                                 <View>
-                                    <Text style={{ fontSize: 10, fontWeight: '700', color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase' }}>Align</Text>
-                                    <Text style={{ fontSize: 32, fontWeight: '900', color: BLACK, letterSpacing: -1.5, textTransform: 'uppercase', lineHeight: 34 }}>MINI</Text>
+                                    <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 10, color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase' }}>Align</Text>
+                                    <Text style={{ fontFamily: 'Inter_900Black', fontSize: 32, color: BLACK, letterSpacing: -1.5, textTransform: 'uppercase', lineHeight: 34 }}>MINI</Text>
                                 </View>
                                 <View style={{ alignItems: 'flex-end' }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-                                        <Text style={{ fontSize: 34, fontWeight: '900', color: BLACK, letterSpacing: -1.5, lineHeight: 36 }}>{miniPrice}</Text>
-                                        <Text style={{ fontSize: 12, fontWeight: '600', color: 'rgba(0,0,0,0.4)', marginBottom: 4 }}>/mo</Text>
+                                        <Text style={{ fontFamily: 'Inter_900Black', fontSize: 34, color: BLACK, letterSpacing: -1.5, lineHeight: 36 }}>{miniPrice}</Text>
+                                        <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 12, color: 'rgba(0,0,0,0.4)', marginBottom: 4 }}>/mo</Text>
                                     </View>
                                     {billing === 'yearly' && (
-                                        <Text style={{ fontSize: 10, fontWeight: '600', color: 'rgba(0,0,0,0.35)', marginTop: 2 }}>₹{MINI_YEARLY_TOTAL} billed yearly</Text>
+                                        <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 10, color: 'rgba(0,0,0,0.35)', marginTop: 2 }}>₹{MINI_YEARLY_TOTAL} billed yearly</Text>
                                     )}
                                 </View>
                             </View>
@@ -230,7 +230,7 @@ const SubscriptionScreen = () => {
                                 activeOpacity={0.88}
                                 style={{ marginTop: 8, backgroundColor: BLACK, borderRadius: 100, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                             >
-                                <Text style={{ fontSize: 13, fontWeight: '900', color: CREAM, letterSpacing: 2, textTransform: 'uppercase' }}>START MINI</Text>
+                                <Text style={{ fontFamily: 'Inter_900Black', fontSize: 13, color: CREAM, letterSpacing: 2, textTransform: 'uppercase' }}>START MINI</Text>
                                 <ArrowRight size={16} strokeWidth={2.5} color={CREAM} />
                             </TouchableOpacity>
                         </View>
@@ -239,23 +239,23 @@ const SubscriptionScreen = () => {
                         <View style={{ marginBottom: 16 }}>
                             <View style={{ alignItems: 'center', marginBottom: -14, zIndex: 1 }}>
                                 <View style={{ backgroundColor: ORANGE, paddingHorizontal: 18, paddingVertical: 6, borderRadius: 100, shadowColor: ORANGE, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
-                                    <Text style={{ fontSize: 10, fontWeight: '900', color: CREAM, letterSpacing: 2, textTransform: 'uppercase' }}>MOST POPULAR</Text>
+                                    <Text style={{ fontFamily: 'Inter_900Black', fontSize: 10, color: CREAM, letterSpacing: 2, textTransform: 'uppercase' }}>MOST POPULAR</Text>
                                 </View>
                             </View>
 
                             <View style={{ backgroundColor: BLACK, borderRadius: 24, padding: 24, paddingTop: 30 }}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
                                     <View>
-                                        <Text style={{ fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.3)', letterSpacing: 2, textTransform: 'uppercase' }}>Align</Text>
-                                        <Text style={{ fontSize: 32, fontWeight: '900', color: CREAM, letterSpacing: -1.5, textTransform: 'uppercase', lineHeight: 34 }}>MAX</Text>
+                                        <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 2, textTransform: 'uppercase' }}>Align</Text>
+                                        <Text style={{ fontFamily: 'Inter_900Black', fontSize: 32, color: CREAM, letterSpacing: -1.5, textTransform: 'uppercase', lineHeight: 34 }}>MAX</Text>
                                     </View>
                                     <View style={{ alignItems: 'flex-end' }}>
                                         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-                                            <Text style={{ fontSize: 34, fontWeight: '900', color: CREAM, letterSpacing: -1.5, lineHeight: 36 }}>{maxPrice}</Text>
-                                            <Text style={{ fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>/mo</Text>
+                                            <Text style={{ fontFamily: 'Inter_900Black', fontSize: 34, color: CREAM, letterSpacing: -1.5, lineHeight: 36 }}>{maxPrice}</Text>
+                                            <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>/mo</Text>
                                         </View>
                                         {billing === 'yearly' && (
-                                            <Text style={{ fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>₹{MAX_YEARLY_TOTAL} billed yearly</Text>
+                                            <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>₹{MAX_YEARLY_TOTAL} billed yearly</Text>
                                         )}
                                     </View>
                                 </View>
@@ -269,22 +269,22 @@ const SubscriptionScreen = () => {
                                     activeOpacity={0.88}
                                     style={{ marginTop: 8, backgroundColor: ORANGE, borderRadius: 100, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                                 >
-                                    <Text style={{ fontSize: 13, fontWeight: '900', color: CREAM, letterSpacing: 2, textTransform: 'uppercase' }}>GO MAX</Text>
+                                    <Text style={{ fontFamily: 'Inter_900Black', fontSize: 13, color: CREAM, letterSpacing: 2, textTransform: 'uppercase' }}>GO MAX</Text>
                                     <ArrowRight size={16} strokeWidth={2.5} color={CREAM} />
                                 </TouchableOpacity>
                             </View>
                         </View>
 
                         {/* ── AP Disclaimer ── */}
-                        <Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '500', color: 'rgba(0,0,0,0.4)', marginTop: 8, marginBottom: 28, lineHeight: 20, paddingHorizontal: 12 }}>
+                        <Text style={{ fontFamily: 'Inter_500Medium', textAlign: 'center', fontSize: 12, color: 'rgba(0,0,0,0.4)', marginTop: 8, marginBottom: 28, lineHeight: 20, paddingHorizontal: 12 }}>
                             APs show effort not wealth.{'\n'}Anyone can earn them for free.
                         </Text>
 
                         {/* ── AP Purchase Center ── */}
-                        <Text style={{ fontSize: 10, fontWeight: '800', color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
+                        <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: 10, color: 'rgba(0,0,0,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
                             AP PURCHASE CENTER
                         </Text>
-                        <Text style={{ fontSize: 11, fontWeight: '500', color: 'rgba(0,0,0,0.4)', marginBottom: 16, lineHeight: 17 }}>
+                        <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: 'rgba(0,0,0,0.4)', marginBottom: 16, lineHeight: 17 }}>
                             One-off top-ups. Subscribers stack indefinitely; free users reset monthly.
                         </Text>
 
@@ -298,7 +298,7 @@ const SubscriptionScreen = () => {
                         </View>
 
                         {/* ── Fine Print ── */}
-                        <Text style={{ textAlign: 'center', fontSize: 10, fontWeight: '500', color: 'rgba(0,0,0,0.25)', letterSpacing: 0.5, lineHeight: 16 }}>
+                        <Text style={{ fontFamily: 'Inter_500Medium', textAlign: 'center', fontSize: 10, color: 'rgba(0,0,0,0.25)', letterSpacing: 0.5, lineHeight: 16 }}>
                             Cancel anytime. Billed monthly or annually.{'\n'}Prices in INR.
                         </Text>
 

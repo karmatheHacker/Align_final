@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,13 +6,9 @@ import {
     TouchableOpacity,
     Image,
     Animated,
-    Dimensions,
     StyleSheet,
     Modal,
     FlatList,
-    NativeSyntheticEvent,
-    NativeScrollEvent,
-    Platform,
     Easing,
     Alert,
     ActivityIndicator,
@@ -22,12 +18,14 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Zap } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useAuth, useUser } from '@clerk/clerk-expo';
-import { getAuthenticatedSupabase } from '../config/supabase';
-import { BLACK, CREAM, ORANGE } from '../constants/colors';
+import { useQuery, useMutation, useAction } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
-const { width: W, height: H } = Dimensions.get('window');
-const HERO_H = H * 0.58;
+import { BLACK, CREAM, ORANGE } from '../constants/colors';
+import { w, h, f, H_PAD, SCREEN_W, SCREEN_H } from '../utils/responsive';
+
+const W = SCREEN_W;
+const HERO_H = SCREEN_H * 0.56;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProfileData {
@@ -36,6 +34,7 @@ interface ProfileData {
     birthday: string | null;
     bio: string | null;
     hometown: string | null;
+    location: string | null;
     workplace: string | null;
     education: string | null;
     school: string | null;
@@ -49,6 +48,9 @@ interface ProfileData {
     drinking: string | null;
     tobacco: string | null;
     drugs: string | null;
+    gender: string | null;
+    height: { value: number; unit: string } | null;
+    verificationStatus?: string;
 }
 
 interface ProfilePromptData {
@@ -69,7 +71,9 @@ function calculateAge(birthday: string | null): number | null {
 
 function buildIdentityPills(p: ProfileData) {
     const pills: { category: string; value: string }[] = [];
+    if (p.gender) pills.push({ category: 'GENDER', value: p.gender });
     if (p.pronouns && p.pronouns.length > 0) pills.push({ category: 'PRONOUNS', value: p.pronouns.join(' / ') });
+    if (p.height) pills.push({ category: 'HEIGHT', value: `${p.height.value}${p.height.unit}` });
     if (p.sexuality) pills.push({ category: 'SEXUALITY', value: p.sexuality });
     if (p.dating_intention) pills.push({ category: 'INTENT', value: p.dating_intention });
     if (p.relationship_type) pills.push({ category: 'LOOKING FOR', value: p.relationship_type });
@@ -117,7 +121,7 @@ function CarouselDot({ active }: { active: boolean }) {
 }
 
 // ─── Hero Photo Carousel ──────────────────────────────────────────────────────
-function PhotoCarousel({ photos, name, age, location }: { photos: string[]; name: string; age: number | null; location: string }) {
+function PhotoCarousel({ photos, name, age, location, isVerified }: { photos: string[]; name: string; age: number | null; location: string; isVerified?: boolean }) {
     const [index, setIndex] = useState(0);
     const flatRef = useRef<FlatList>(null);
 
@@ -142,6 +146,7 @@ function PhotoCarousel({ photos, name, age, location }: { photos: string[]; name
                 scrollEventThrottle={16}
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(_, i) => String(i)}
+                nestedScrollEnabled={true}
                 renderItem={({ item }) => (
                     <Image source={{ uri: item as string }} style={{ width: W, height: HERO_H }} resizeMode="cover" />
                 )}
@@ -158,12 +163,12 @@ function PhotoCarousel({ photos, name, age, location }: { photos: string[]; name
             {/* Chevron navigation */}
             {index > 0 && (
                 <TouchableOpacity style={[styles.chevron, styles.chevronLeft]} onPress={() => goTo(-1)} activeOpacity={0.8}>
-                    <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
+                    <Ionicons name="chevron-back" size={w(18)} color="#FFFFFF" />
                 </TouchableOpacity>
             )}
             {index < photos.length - 1 && (
                 <TouchableOpacity style={[styles.chevron, styles.chevronRight]} onPress={() => goTo(1)} activeOpacity={0.8}>
-                    <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                    <Ionicons name="chevron-forward" size={w(18)} color="#FFFFFF" />
                 </TouchableOpacity>
             )}
 
@@ -171,10 +176,17 @@ function PhotoCarousel({ photos, name, age, location }: { photos: string[]; name
             <View style={styles.heroTextBlock}>
                 <View style={styles.progressRow}>
                     {photos.map((_, i) => (
-                        <CarouselDot key={i} active={i === index} />
+                        <CarouselDot key={`dot-${i}`} active={i === index} />
                     ))}
                 </View>
-                <Text style={styles.heroName} allowFontScaling={false}>{name}{age ? `, ${age}` : ''}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: w(10) }}>
+                    <Text style={styles.heroName} allowFontScaling={false}>{name}{age ? `, ${age}` : ''}</Text>
+                    {isVerified && (
+                        <View style={{ width: w(22), height: w(22), borderRadius: w(11), backgroundColor: '#00FF88', alignItems: 'center', justifyContent: 'center', marginTop: h(4) }}>
+                            <Ionicons name="checkmark" size={w(14)} color={BLACK} />
+                        </View>
+                    )}
+                </View>
                 {location ? <Text style={styles.heroLocation} allowFontScaling={false}>{location}</Text> : null}
             </View>
         </View>
@@ -209,7 +221,7 @@ function ToastNotification({ msg, visible }: { msg: string; visible: boolean }) 
 
     return (
         <Animated.View style={[styles.toast, { opacity, transform: [{ translateY }] }]} pointerEvents="none">
-            <Zap size={14} color={ORANGE} fill={ORANGE} />
+            <Zap size={w(14)} color={ORANGE} fill={ORANGE} />
             <Text style={styles.toastText}>{msg}</Text>
         </Animated.View>
     );
@@ -238,31 +250,31 @@ function ApSendSheet({ visible, onDismiss, onConfirm, profileName, profilePhoto 
         <Modal transparent animationType="none" visible={visible} onRequestClose={onDismiss}>
             <Animated.View style={[styles.sheetBackdrop, { opacity: overlayOpacity }]}>
                 <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetY }], paddingBottom: 40 }]}>
-                    <TouchableOpacity style={{ position: 'absolute', top: 24, right: 24, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }} onPress={onDismiss} activeOpacity={0.8}>
-                        <Ionicons name="close" size={20} color="rgba(13,13,13,0.4)" />
+                    <TouchableOpacity style={{ position: 'absolute', top: h(22), right: w(22), width: w(36), height: w(36), alignItems: 'center', justifyContent: 'center' }} onPress={onDismiss} activeOpacity={0.8}>
+                        <Ionicons name="close" size={w(20)} color="rgba(13,13,13,0.38)" />
                     </TouchableOpacity>
 
                     {/* Header: Photo and Name */}
-                    {profilePhoto ? <Image source={{ uri: profilePhoto }} style={{ width: 64, height: 64, borderRadius: 32, marginBottom: 16 }} /> : null}
-                    <Text style={{ fontSize: 24, fontWeight: '900', color: BLACK, textTransform: 'uppercase', marginBottom: 4, letterSpacing: -1 }}>{profileName}</Text>
-                    <Text style={{ fontSize: 10, fontWeight: '800', color: 'rgba(13,13,13,0.4)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 32 }}>SEND ALIGNPOINTS</Text>
+                    {profilePhoto ? <Image source={{ uri: profilePhoto }} style={{ width: w(64), height: w(64), borderRadius: w(32), marginBottom: h(14) }} /> : null}
+                    <Text style={{ fontFamily: 'Inter_900Black', fontSize: f(22), color: BLACK, textTransform: 'uppercase', marginBottom: h(4), letterSpacing: -0.5 }}>{profileName}</Text>
+                    <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: f(10), color: 'rgba(13,13,13,0.38)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: h(28) }}>SEND ALIGNPOINTS</Text>
 
                     {/* Stepper */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 32, marginBottom: 40 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: w(28), marginBottom: h(36) }}>
                         <TouchableOpacity style={styles.stepperBtn} onPress={() => setApCount(Math.max(1, apCount - 1))} activeOpacity={0.7}>
-                            <Ionicons name="remove" size={24} color={BLACK} />
+                            <Ionicons name="remove" size={w(22)} color={BLACK} />
                         </TouchableOpacity>
 
-                        <Text style={{ fontSize: 48, fontWeight: '900', color: BLACK, minWidth: 60, textAlign: 'center' }}>{apCount}</Text>
+                        <Text style={{ fontFamily: 'Inter_900Black', fontSize: f(48), color: BLACK, minWidth: w(56), textAlign: 'center', letterSpacing: -1 }}>{apCount}</Text>
 
                         <TouchableOpacity style={styles.stepperBtn} onPress={() => setApCount(apCount + 1)} activeOpacity={0.7}>
-                            <Ionicons name="add" size={24} color={BLACK} />
+                            <Ionicons name="add" size={w(22)} color={BLACK} />
                         </TouchableOpacity>
                     </View>
 
                     {/* Action Button */}
                     <TouchableOpacity style={styles.sheetBtn} onPress={() => onConfirm(apCount)} activeOpacity={0.85}>
-                        <Zap size={16} color={CREAM} fill={CREAM} />
+                        <Zap size={w(16)} color={CREAM} fill={CREAM} />
                         <Text style={styles.sheetBtnText}>SEND APS</Text>
                     </TouchableOpacity>
                 </Animated.View>
@@ -340,7 +352,7 @@ function SuccessSheet({ visible, onDismiss, profileName, profilePhoto }: { visib
                     <Animated.View style={[styles.sheetAvatarRing, { opacity: avatarOpacity, transform: [{ scale: avatarScale }] }]}>
                         {profilePhoto ? <Image source={{ uri: profilePhoto }} style={styles.sheetAvatar} /> : <View style={[styles.sheetAvatar, { backgroundColor: '#333' }]} />}
                         <Animated.View style={[styles.sheetCheck, { transform: [{ scale: checkScale }, { rotate: checkRotation }] }]}>
-                            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                            <Ionicons name="checkmark" size={w(14)} color="#FFFFFF" />
                         </Animated.View>
                     </Animated.View>
 
@@ -358,10 +370,10 @@ function SuccessSheet({ visible, onDismiss, profileName, profilePhoto }: { visib
                         </Text>
                     </Animated.View>
 
-                    <Animated.View style={{ width: '100%', opacity: btnOpacity, marginTop: 12 }}>
+                    <Animated.View style={{ width: '100%', opacity: btnOpacity, marginTop: h(12) }}>
                         <TouchableOpacity style={styles.sheetBtn} onPress={onDismiss} activeOpacity={0.85}>
                             <Text style={styles.sheetBtnText}>CONTINUE BROWSING</Text>
-                            <Ionicons name="arrow-forward" size={16} color={CREAM} />
+                            <Ionicons name="arrow-forward" size={w(16)} color={CREAM} />
                         </TouchableOpacity>
                     </Animated.View>
 
@@ -373,144 +385,80 @@ function SuccessSheet({ visible, onDismiss, profileName, profilePhoto }: { visib
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 export default function ProfileDetailScreen() {
+    const scrollRef = useRef<ScrollView>(null);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { getToken } = useAuth();
-    const { user } = useUser();
-    const targetClerkId = route.params?.clerk_id;
+    const userId = route.params?.userId;
     const initialScore: number = route.params?.compatibility_score ?? 0;
+    const explanation: string | null = route.params?.explanation ?? null;
 
-    // ── Real Data State ──────────────────────────────────────────────────
-    const [profileData, setProfileData] = useState<ProfileData | null>(null);
-    const [photos, setPhotos] = useState<string[]>([]);
-    const [prompts, setPrompts] = useState<ProfilePromptData[]>([]);
-    const [compatScore, setCompatScore] = useState<number>(initialScore);
+    // ── Data Fetching ───────────────────────────────────────────────────
+    const convexProfile = useQuery(api.users.getProfileById, { userId });
+    const isLoading = convexProfile === undefined;
 
-    const [voicePrompt, setVoicePrompt] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    // ── Local state derived from Query or Params ─────────────────────────
+    const profileData = convexProfile || null;
+    const photos = convexProfile?.photos || [];
+    const prompts = convexProfile?.prompts || [];
+    const voicePrompt = null; // To be implemented with voiceProfiles table later
+    const compatScore = initialScore;
+
+    const getCompatibilityInsights = useAction(api.ai.insights.getCompatibilityInsights);
+    const [insights, setInsights] = useState<any>(null);
+    const [insightsGenerating, setInsightsGenerating] = useState(false);
+
+    const recordProfileView = useMutation(api.swipes.recordProfileView);
+
+    // Record view once the real clerkId is available
+    useEffect(() => {
+        if (profileData?.clerk_id) {
+            recordProfileView({ viewedClerkId: profileData.clerk_id });
+        }
+    }, [profileData?.clerk_id]);
+
+    // Fetch compatibility insights when we have a score and target
+    useEffect(() => {
+        if (!profileData?.clerk_id || !compatScore) return;
+        setInsightsGenerating(true);
+        getCompatibilityInsights({ otherClerkId: profileData.clerk_id })
+            .then((data) => {
+                if (data) setInsights(data);
+                setInsightsGenerating(data?.generating ?? false);
+            })
+            .catch(() => setInsightsGenerating(false));
+    }, [profileData?.clerk_id]);
 
     const [success, setSuccess] = useState(false);
     const [apSheetVisible, setApSheetVisible] = useState(false);
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMsg, setToastMsg] = useState('');
 
-    // ── Fetch Real Profile Data ──────────────────────────────────────────
-    useEffect(() => {
-        const fetchProfile = async () => {
-            if (!targetClerkId) { setIsLoading(false); return; }
-            try {
-                const token = await getToken({ template: 'supabase' });
-                if (!token) { setIsLoading(false); return; }
-                const client = getAuthenticatedSupabase(token);
-
-                // Parallel fetch all data
-                const [profileRes, photosRes, promptsRes, aimRes, voiceRes] = await Promise.all([
-                    client.from('profiles').select('*').eq('clerk_id', targetClerkId).single(),
-                    client.from('photos').select('photo_url').eq('clerk_id', targetClerkId).order('position', { ascending: true }),
-                    client.from('profile_prompts').select('*').eq('clerk_id', targetClerkId),
-                    client.rpc('get_home_aim_matches', { p_limit: 50 }),
-                    client.from('voice_profiles').select('prompt_text').eq('clerk_id', targetClerkId).maybeSingle(),
-                ]);
-
-                if (profileRes.data) {
-                    setProfileData(profileRes.data as ProfileData);
-                    // Photos: prefer photos table, fall back to profile.photo_urls array
-                    if (photosRes.data && photosRes.data.length > 0) {
-                        setPhotos(photosRes.data.map((p: any) => p.photo_url).filter(Boolean));
-                    } else if (profileRes.data.photo_urls && profileRes.data.photo_urls.length > 0) {
-                        setPhotos((profileRes.data.photo_urls as string[]).filter(Boolean));
-                    }
-                }
-                if (promptsRes.data) setPrompts(promptsRes.data as ProfilePromptData[]);
-                if (voiceRes.data) setVoicePrompt(voiceRes.data.prompt_text);
-
-                // Compatibility score: only query if not already provided via nav params
-                if (initialScore === 0) {
-                    let scoreFound = false;
-                    // 1) Check AIM matches first (fast, already fetched)
-                    if (aimRes.data) {
-                        const aimMatch = (aimRes.data as any[]).find((m: any) => m.clerk_id === targetClerkId);
-                        if (aimMatch) {
-                            setCompatScore(Math.round(aimMatch.compatibility_score ?? 0));
-                            scoreFound = true;
-                        }
-                    }
-                    // 2) Fallback: query compatibility_predictions table for this pair
-                    if (!scoreFound && user?.id) {
-                        const [pred1, pred2] = await Promise.all([
-                            client.from('compatibility_predictions')
-                                .select('predicted_success_score')
-                                .eq('user1_clerk_id', user.id)
-                                .eq('user2_clerk_id', targetClerkId)
-                                .maybeSingle(),
-                            client.from('compatibility_predictions')
-                                .select('predicted_success_score')
-                                .eq('user1_clerk_id', targetClerkId)
-                                .eq('user2_clerk_id', user.id)
-                                .maybeSingle(),
-                        ]);
-                        const score = pred1.data?.predicted_success_score ?? pred2.data?.predicted_success_score;
-                        if (score != null) setCompatScore(Math.round(score));
-                    }
-                }
-            } catch (err) {
-                console.warn('Profile fetch error:', err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchProfile();
-    }, [targetClerkId, getToken]);
-
     // ── Derived Data ─────────────────────────────────────────────────────
     const displayName = (profileData?.name || 'UNKNOWN').toUpperCase();
-    const age = calculateAge(profileData?.birthday || null);
-    const location = (profileData?.hometown || '').toUpperCase();
+    const age = route.params?.age || calculateAge(profileData?.birthday || null);
+    const location = (profileData?.location || profileData?.hometown || '').toUpperCase();
     const identity = profileData ? buildIdentityPills(profileData) : [];
     const lifestyle = profileData ? buildLifestyle(profileData) : [];
     const background = profileData ? buildBackground(profileData) : [];
     const bio = profileData?.bio || '';
-    const aiReason = compatScore > 0
+    const aiBio = profileData?.aiBio || '';
+    const personality = profileData?.personality || null;
+    const aiReason = explanation || (compatScore > 0
         ? `${displayName} scores ${compatScore}% based on AI personality vector analysis, behavioral compatibility modeling, and shared value alignment.`
-        : 'Compatibility is still being calculated by the ALIGN engine.';
+        : 'Compatibility is still being calculated by the ALIGN engine.');
 
     const handleSendApsConfirm = async (count: number) => {
-        try {
-            const token = await getToken({ template: 'supabase' });
-            if (!token) return;
-            const client = getAuthenticatedSupabase(token);
-            const { error } = await client.rpc('send_alignpoints', {
-                p_receiver_id: targetClerkId,
-                p_amount: count,
-            });
-            if (error) {
-                Alert.alert('Error', error.message);
-            } else {
-                setApSheetVisible(false);
-                setToastMsg(`${count} APS SENT TO ${displayName}`);
-                setToastVisible(true);
-                setTimeout(() => setToastVisible(false), 3000);
-            }
-        } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to send APs');
-        }
+        // No-op without backend
+        setApSheetVisible(false);
+        setToastMsg(`${count} APS SENT TO ${displayName}`);
+        setToastVisible(true);
+        setTimeout(() => setToastVisible(false), 3000);
     };
 
     const handleSendRequest = async () => {
-        try {
-            const token = await getToken({ template: 'supabase' });
-            if (!token) return;
-            const client = getAuthenticatedSupabase(token);
-            const { error } = await client.rpc('swipe_right', { p_receiver_id: targetClerkId });
-            if (error) {
-                Alert.alert('Error', error.message);
-            } else {
-                setSuccess(true);
-            }
-        } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to send request');
-        }
+        // No-op without backend
+        setSuccess(true);
     };
 
     // ── Loading State ────────────────────────────────────────────────────
@@ -527,30 +475,52 @@ export default function ProfileDetailScreen() {
             <StatusBar style="light" />
 
             {/* Back + Report overlay buttons */}
-            <View style={[styles.topBar, { top: insets.top + 8 }]}>
+            <View style={[styles.topBar, { top: insets.top + h(10) }]}>
                 <TouchableOpacity style={styles.iconCircle} onPress={() => navigation.goBack()} activeOpacity={0.8}>
-                    <Ionicons name="chevron-down" size={24} color={BLACK} />
+                    <Ionicons name="chevron-down" size={w(22)} color={BLACK} />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconCircle} onPress={() => navigation.navigate('Report', { clerk_id: targetClerkId })} activeOpacity={0.8}>
-                    <Ionicons name="flag-outline" size={18} color={BLACK} />
+                <TouchableOpacity style={styles.iconCircle} onPress={() => navigation.navigate('Report', { clerk_id: profileData?.clerk_id })} activeOpacity={0.8}>
+                    <Ionicons name="flag-outline" size={w(18)} color={BLACK} />
                 </TouchableOpacity>
             </View>
 
+            {/* Manual Scroll Toggle */}
+            <TouchableOpacity
+                style={styles.scrollToggle}
+                onPress={() => scrollRef.current?.scrollTo({ y: h(600), animated: true })}
+                activeOpacity={0.8}
+            >
+                <Ionicons name="arrow-down" size={w(20)} color={CREAM} />
+                <Text style={styles.scrollToggleText}>VIEW INFO</Text>
+            </TouchableOpacity>
+
             <ScrollView
+                ref={scrollRef}
                 style={{ flex: 1 }}
-                contentContainerStyle={{ flexGrow: 1, paddingBottom: 140 }}
-                showsVerticalScrollIndicator={false}
-                bounces={true}
-                nestedScrollEnabled={true}
+                contentContainerStyle={{ paddingBottom: 250 }}
+                showsVerticalScrollIndicator={true}
             >
                 {/* ── Hero ──────────────────────────────────────────────── */}
                 {photos.length > 0 ? (
-                    <PhotoCarousel photos={photos} name={displayName} age={age} location={location} />
+                    <PhotoCarousel
+                        photos={photos}
+                        name={displayName}
+                        age={age}
+                        location={location}
+                        isVerified={profileData?.verificationStatus === 'approved'}
+                    />
                 ) : (
                     <View style={{ height: HERO_H, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="person" size={80} color="rgba(255,255,255,0.2)" />
-                        <View style={[styles.heroTextBlock, { position: 'absolute', bottom: 20 }]}>
-                            <Text style={styles.heroName} allowFontScaling={false}>{displayName}{age ? `, ${age}` : ''}</Text>
+                        <Ionicons name="person" size={w(72)} color="rgba(255,255,255,0.18)" />
+                        <View style={[styles.heroTextBlock, { position: 'absolute', bottom: h(24) }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: w(10) }}>
+                                <Text style={styles.heroName} allowFontScaling={false}>{displayName}{age ? `, ${age}` : ''}</Text>
+                                {profileData?.verificationStatus === 'approved' && (
+                                    <View style={{ width: w(22), height: w(22), borderRadius: w(11), backgroundColor: '#00FF88', alignItems: 'center', justifyContent: 'center', marginTop: h(4) }}>
+                                        <Ionicons name="checkmark" size={w(14)} color={BLACK} />
+                                    </View>
+                                )}
+                            </View>
                             {location ? <Text style={styles.heroLocation} allowFontScaling={false}>{location}</Text> : null}
                         </View>
                     </View>
@@ -564,7 +534,52 @@ export default function ProfileDetailScreen() {
                             <Text style={styles.aiLabel}>AI ALIGNMENT SCORE</Text>
                         </View>
                         <Text style={styles.aiPct}>{compatScore}%</Text>
-                        <Text style={styles.aiReason}>{aiReason}</Text>
+
+                        <View style={styles.whyMatchedContainer}>
+                            <Text style={styles.whyMatchedLabel}>ALIGNED ANALYSIS</Text>
+                            {insightsGenerating ? (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: w(8) }}>
+                                    <ActivityIndicator size="small" color={ORANGE} />
+                                    <Text style={styles.aiReason}>Generating deep compatibility analysis…</Text>
+                                </View>
+                            ) : insights?.narrative ? (
+                                <>
+                                    <Text style={styles.aiReason}>{insights.narrative}</Text>
+
+                                    {/* Dimension Breakdown */}
+                                    {insights.dimensions?.length > 0 && (
+                                        <View style={{ marginTop: h(24) }}>
+                                            <Text style={[styles.whyMatchedLabel, { marginBottom: h(14) }]}>COMPATIBILITY BREAKDOWN</Text>
+                                            {insights.dimensions.map((d: any, i: number) => (
+                                                <View key={i} style={{ marginBottom: h(12) }}>
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: h(4) }}>
+                                                        <Text style={{ fontFamily: 'Inter_700Bold', fontSize: f(10), color: 'rgba(245,240,235,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>{d.label}</Text>
+                                                        <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: f(10), color: CREAM }}>{Math.round(d.score)}%</Text>
+                                                    </View>
+                                                    <View style={{ height: h(4), backgroundColor: 'rgba(245,240,235,0.1)', borderRadius: 2 }}>
+                                                        <View style={{ height: '100%', width: `${d.score}%`, backgroundColor: ORANGE, borderRadius: 2 }} />
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+
+                                    {insights.topStrengths?.length > 0 && (
+                                        <View style={{ marginTop: h(14) }}>
+                                            <Text style={[styles.whyMatchedLabel, { marginBottom: h(6) }]}>TOP ALIGNMENTS</Text>
+                                            {insights.topStrengths.slice(0, 3).map((s: string, i: number) => (
+                                                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: h(4) }}>
+                                                    <View style={{ width: w(6), height: w(6), borderRadius: w(3), backgroundColor: '#00FF88', marginRight: w(8) }} />
+                                                    <Text style={[styles.aiReason, { fontSize: f(12) }]}>{s}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+                                </>
+                            ) : (
+                                <Text style={styles.aiReason}>{aiReason}</Text>
+                            )}
+                        </View>
                     </View>
 
                     {/* ── Voice Prompt ──────────────────────────────────── */}
@@ -574,14 +589,14 @@ export default function ProfileDetailScreen() {
                             <LightCard>
                                 <View style={styles.voiceRow}>
                                     <TouchableOpacity style={styles.playBtn} activeOpacity={0.8}>
-                                        <Ionicons name="play" size={18} color={CREAM} />
+                                        <Ionicons name="play" size={w(18)} color={CREAM} />
                                     </TouchableOpacity>
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.voiceQ}>"{voicePrompt}"</Text>
                                         <View style={styles.waveform}>
                                             {Array.from({ length: 28 }).map((_, i) => (
                                                 <View
-                                                    key={i}
+                                                    key={`wave-${i}`}
                                                     style={[
                                                         styles.waveBar,
                                                         {
@@ -613,26 +628,71 @@ export default function ProfileDetailScreen() {
                         <>
                             <SectionLabel text="PROMPTS" />
                             <LightCard>
-                                {prompts.map((prompt: ProfilePromptData, index: number) => (
+                                {prompts.map((prompt: any, index: number) => (
                                     <View
-                                        key={prompt.id}
+                                        key={`prompt-${prompt.id || index}`}
                                         style={index < prompts.length - 1 ? styles.promptBorder : undefined}
                                     >
-                                        <Text style={styles.promptQ}>{prompt.prompt_question}</Text>
-                                        <Text style={styles.promptA}>{prompt.prompt_answer}</Text>
+                                        <Text style={styles.promptQ}>{prompt.prompt_question || prompt.question}</Text>
+                                        <Text style={styles.promptA}>{prompt.prompt_answer || prompt.answer}</Text>
                                     </View>
                                 ))}
                             </LightCard>
                         </>
                     )}
 
-                    {/* ── Identity Pills ────────────────────────────────── */}
+                    {/* ── Personality Profile ────────────────────────────── */}
+                    {personality && (
+                        <>
+                            <SectionLabel text="PERSONALITY PROFILE" />
+                            <LightCard>
+                                {personality.lifeStage ? (
+                                    <View style={styles.promptBorder}>
+                                        <Text style={styles.promptQ}>LIFE STAGE</Text>
+                                        <Text style={[styles.promptA, { textTransform: 'uppercase', letterSpacing: 1, fontSize: f(14) }]}>{personality.lifeStage.replace(/-/g, ' ')}</Text>
+                                    </View>
+                                ) : null}
+                                {personality.communicationStyle ? (
+                                    <View style={styles.promptBorder}>
+                                        <Text style={styles.promptQ}>COMMUNICATION STYLE</Text>
+                                        <Text style={[styles.promptA, { textTransform: 'uppercase', letterSpacing: 1, fontSize: f(14) }]}>{personality.communicationStyle.replace(/-/g, ' ')}</Text>
+                                    </View>
+                                ) : null}
+                                {personality.values && Array.isArray(personality.values) && personality.values.length > 0 ? (
+                                    <View style={styles.promptBorder}>
+                                        <Text style={styles.promptQ}>CORE VALUES</Text>
+                                        <View style={[styles.tagWrap, { marginTop: h(8) }]}>
+                                            {personality.values.map((v: any, i: number) => (
+                                                <View key={`val-${userId}-${i}`} style={[styles.tag, { borderColor: 'rgba(255,107,0,0.2)', backgroundColor: 'rgba(255,107,0,0.02)' }]}>
+                                                    <Text style={[styles.tagText, { color: ORANGE, fontSize: f(10) }]}>{String(v).toUpperCase()}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+                                ) : null}
+                                {personality.interestVector && Array.isArray(personality.interestVector) && personality.interestVector.length > 0 ? (
+                                    <View style={{ paddingTop: h(4) }}>
+                                        <Text style={styles.promptQ}>INTERESTS</Text>
+                                        <View style={[styles.tagWrap, { marginTop: h(8) }]}>
+                                            {personality.interestVector.map((v: any, i: number) => (
+                                                <View key={`int-${userId}-${i}`} style={styles.tag}>
+                                                    <Text style={styles.tagText}>{String(v).toUpperCase()}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+                                ) : null}
+                            </LightCard>
+                        </>
+                    )}
+
+                    {/* ── Identity & Background ─────────────────────────── */}
                     {identity.length > 0 && (
                         <>
                             <SectionLabel text="IDENTITY" />
                             <View style={styles.tagWrap}>
-                                {identity.map((item) => (
-                                    <View key={item.category} style={styles.identityPill}>
+                                {identity.map((item, idx) => (
+                                    <View key={`identity-${item.category}-${idx}`} style={styles.identityPill}>
                                         <Text style={styles.pillCategory}>{item.category}</Text>
                                         <Text style={styles.pillValue}>{item.value}</Text>
                                     </View>
@@ -641,74 +701,66 @@ export default function ProfileDetailScreen() {
                         </>
                     )}
 
-                    {/* ── Lifestyle Grid ────────────────────────────────── */}
-                    {lifestyle.length > 0 && (
-                        <>
-                            <SectionLabel text="LIFESTYLE" />
-                            <View style={styles.lifestyleGrid}>
-                                {lifestyle.map((item) => (
-                                    <LightCard key={item.label} style={styles.lifestyleCell}>
-                                        <Ionicons name={item.icon} size={20} color="rgba(13,13,13,0.4)" />
-                                        <Text style={styles.lifestyleLabel}>{item.label}</Text>
-                                        <Text style={styles.lifestyleValue}>{item.value}</Text>
-                                    </LightCard>
-                                ))}
-                            </View>
-                        </>
-                    )}
-
-                    {/* ── Background Rows ───────────────────────────────── */}
                     {background.length > 0 && (
                         <>
                             <SectionLabel text="BACKGROUND" />
                             <LightCard>
-                                {background.map((item, i: number) => (
-                                    <View
-                                        key={item.label}
-                                        style={[
-                                            styles.bgRow,
-                                            i < background.length - 1 && styles.bgRowBorder,
-                                        ]}
-                                    >
-                                        <Text style={styles.bgLabel}>{item.label}</Text>
-                                        <Text style={styles.bgValue}>{item.value}</Text>
+                                {background.map((item, idx) => (
+                                    <View key={`bg-${idx}`} style={idx < background.length - 1 ? styles.bgRowBorder : undefined}>
+                                        <View style={styles.bgRow}>
+                                            <Text style={styles.bgLabel}>{item.label}</Text>
+                                            <Text style={styles.bgValue}>{item.value}</Text>
+                                        </View>
                                     </View>
                                 ))}
                             </LightCard>
                         </>
                     )}
+
+                    {/* ── Lifestyle ─────────────────────────────────────── */}
+                    {lifestyle.length > 0 && (
+                        <>
+                            <SectionLabel text="LIFESTYLE" />
+                            <LightCard>
+                                <View style={styles.lifestyleGrid}>
+                                    {lifestyle.map((item, idx) => (
+                                        <View key={`lifestyle-${idx}`} style={styles.lifestyleCell}>
+                                            <Text style={styles.lifestyleLabel}>{item.label}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: w(6) }}>
+                                                <Ionicons name={item.icon} size={w(14)} color={BLACK} />
+                                                <Text style={styles.lifestyleValue}>{item.value}</Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </View>
+                            </LightCard>
+                        </>
+                    )}
+
+                    {/* ── Matchmaking Deep Dive ────────────────────────── */}
+                    {aiBio ? (
+                        <>
+                            <SectionLabel text="THE DEEP DIVE" />
+                            <LightCard style={{ backgroundColor: '#F9F7F2', borderColor: 'rgba(13,13,13,0.03)' }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: w(8), marginBottom: h(12) }}>
+                                    <View style={{ padding: w(6), backgroundColor: BLACK, borderRadius: 8 }}>
+                                        <Zap size={w(12)} color={CREAM} fill={CREAM} />
+                                    </View>
+                                    <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: f(10), color: BLACK, letterSpacing: 2 }}>MATCHMAKING BIO</Text>
+                                </View>
+                                <Text style={[styles.bioText, { color: 'rgba(13,13,13,0.7)', fontStyle: 'italic' }]}>"{aiBio}"</Text>
+                                <View style={{ marginTop: h(16), paddingTop: h(16), borderTopWidth: 1, borderTopColor: 'rgba(13,13,13,0.05)' }}>
+                                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: f(9), color: 'rgba(13,13,13,0.4)', lineHeight: f(14) }}>
+                                        This profile summary is generated by the ALIGN engine to highlight deep compatibility factors based on shared values and life goals.
+                                    </Text>
+                                </View>
+                            </LightCard>
+                        </>
+                    ) : null}
                 </View>
             </ScrollView>
 
-            {/* ── Floating Action Bar ──────────────────────────────────── */}
-            <View style={[styles.actionBar, { paddingBottom: insets.bottom + 16 }]}>
-                {/* Pass button */}
-                <TouchableOpacity style={styles.passBtn} activeOpacity={0.8} onPress={() => navigation.goBack()}>
-                    <Ionicons name="close" size={24} color={BLACK} />
-                </TouchableOpacity>
-
-                {/* Send APs */}
-                <TouchableOpacity
-                    style={styles.apBtn}
-                    activeOpacity={0.8}
-                    onPress={() => setApSheetVisible(true)}
-                >
-                    <Zap size={14} color={CREAM} fill={CREAM} />
-                    <Text style={styles.apBtnText}>SEND APS</Text>
-                </TouchableOpacity>
-
-                {/* Send Request */}
-                <TouchableOpacity
-                    style={{ flex: 1 }}
-                    activeOpacity={0.85}
-                    onPress={handleSendRequest}
-                >
-                    <View style={[styles.sendBtn, { backgroundColor: BLACK }]}>
-                        <Text style={styles.sendBtnText}>SEND REQUEST</Text>
-                        <Ionicons name="arrow-forward" size={16} color={CREAM} />
-                    </View>
-                </TouchableOpacity>
-            </View>
+            {/* Action buttons removed as per user request */}
 
             {/* ── Success Sheet ────────────────────────────────────────── */}
             <SuccessSheet
@@ -740,17 +792,17 @@ const styles = StyleSheet.create({
     // Top back/report bar
     topBar: {
         position: 'absolute',
-        left: 16,
-        right: 16,
+        left: w(16),
+        right: w(16),
         flexDirection: 'row',
         justifyContent: 'space-between',
         zIndex: 50,
     },
     iconCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(245,240,235,0.9)',
+        width: w(44),
+        height: w(44),
+        borderRadius: w(22),
+        backgroundColor: 'rgba(245,240,235,0.92)',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -766,106 +818,106 @@ const styles = StyleSheet.create({
     },
     counterPill: {
         position: 'absolute',
-        top: 16,
+        top: h(16),
         alignSelf: 'center',
         backgroundColor: 'rgba(13,13,13,0.45)',
-        paddingHorizontal: 12,
-        paddingVertical: 5,
+        paddingHorizontal: w(12),
+        paddingVertical: h(5),
         borderRadius: 100,
     },
     counterText: {
-        fontSize: 11,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
+        fontSize: f(10),
         color: '#FFFFFF',
         letterSpacing: 1,
     },
     chevron: {
         position: 'absolute',
         top: '50%',
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(13,13,13,0.4)',
+        width: w(38),
+        height: w(38),
+        borderRadius: w(19),
+        backgroundColor: 'rgba(13,13,13,0.38)',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: -18,
+        marginTop: -w(19),
     },
-    chevronLeft: { left: 12 },
-    chevronRight: { right: 12 },
+    chevronLeft: { left: w(12) },
+    chevronRight: { right: w(12) },
     heroTextBlock: {
         position: 'absolute',
-        bottom: 20,
-        left: 24,
-        right: 24,
+        bottom: h(24),
+        left: H_PAD,
+        right: H_PAD,
     },
     progressRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        marginBottom: 12,
+        gap: w(4),
+        marginBottom: h(10),
     },
     progressDot: {
-        height: 4,
+        height: h(4),
     },
     heroName: {
-        fontSize: Math.round(W * 0.16),
-        fontWeight: '900',
+        fontFamily: 'Inter_900Black',
+        fontSize: Math.round(W * 0.14),
         color: '#FFFFFF',
-        letterSpacing: -2,
-        lineHeight: Math.round(W * 0.155),
+        letterSpacing: -1.5,
+        lineHeight: Math.round(W * 0.135),
     },
     heroLocation: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: 'rgba(255,255,255,0.7)',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
+        color: 'rgba(255,255,255,0.65)',
         textTransform: 'uppercase',
         letterSpacing: 2.5,
-        marginTop: 6,
+        marginTop: h(6),
     },
 
     // Content area
     content: {
-        paddingHorizontal: 24,
-        paddingTop: 24,
+        paddingHorizontal: H_PAD,
+        paddingTop: h(20),
     },
 
     // Section label
     sectionLabel: {
-        fontSize: 10,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
         color: 'rgba(13,13,13,0.38)',
         textTransform: 'uppercase',
         letterSpacing: 3,
-        marginBottom: 10,
-        marginTop: 24,
+        marginBottom: h(10),
+        marginTop: h(22),
     },
 
     // Light card
     lightCard: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 24,
+        borderRadius: w(22),
         borderWidth: 1,
-        borderColor: 'rgba(13,13,13,0.07)',
-        padding: 20,
+        borderColor: 'rgba(13,13,13,0.06)',
+        padding: w(20),
     },
 
     // AI card
     aiCard: {
         backgroundColor: BLACK,
-        borderRadius: 32,
-        padding: 28,
-        marginBottom: 4,
+        borderRadius: w(28),
+        padding: w(24),
+        marginBottom: h(2),
     },
     aiTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginBottom: 4,
+        gap: w(8),
+        marginBottom: h(4),
     },
     greenDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: w(8),
+        height: w(8),
+        borderRadius: w(4),
         backgroundColor: '#00FF88',
         shadowColor: '#00FF88',
         shadowOffset: { width: 0, height: 0 },
@@ -873,105 +925,119 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
     },
     aiLabel: {
-        fontSize: 10,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
         color: 'rgba(245,240,235,0.5)',
         textTransform: 'uppercase',
         letterSpacing: 2.5,
     },
     aiPct: {
-        fontSize: 80,
-        fontWeight: '900',
+        fontFamily: 'Inter_900Black',
+        fontSize: f(68),
         color: CREAM,
-        letterSpacing: -3,
-        lineHeight: 80,
-        marginBottom: 12,
+        letterSpacing: -2,
+        lineHeight: f(72),
+        marginBottom: h(10),
+    },
+    whyMatchedContainer: {
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(245,240,235,0.1)',
+        paddingTop: h(20),
+    },
+    whyMatchedLabel: {
+        fontFamily: 'Inter_900Black',
+        fontSize: f(9),
+        color: ORANGE,
+        letterSpacing: 2,
+        textTransform: 'uppercase',
+        marginBottom: h(10),
     },
     aiReason: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: 'rgba(245,240,235,0.7)',
-        lineHeight: 20,
+        fontFamily: 'Inter_500Medium',
+        fontSize: f(13),
+        color: 'rgba(245,240,235,0.65)',
+        lineHeight: f(20),
     },
 
     // Voice prompt
     voiceRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
+        gap: w(16),
     },
     playBtn: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: w(48),
+        height: w(48),
+        borderRadius: w(24),
         backgroundColor: BLACK,
         alignItems: 'center',
         justifyContent: 'center',
     },
     voiceQ: {
-        fontSize: 13,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
+        fontSize: f(13),
         color: BLACK,
-        marginBottom: 10,
+        marginBottom: h(10),
         fontStyle: 'italic',
     },
     waveform: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 2,
-        height: 24,
+        gap: w(2),
+        height: h(24),
     },
     waveBar: {
-        width: 3,
-        borderRadius: 2,
+        width: w(3),
+        borderRadius: w(2),
     },
 
     // Bio
     bioText: {
-        fontSize: 14,
-        fontWeight: '500',
+        fontFamily: 'Inter_500Medium',
+        fontSize: f(14),
         color: BLACK,
-        lineHeight: 22,
+        lineHeight: f(22),
     },
 
     // Prompts
     promptQ: {
-        fontSize: 11,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
         color: 'rgba(13,13,13,0.4)',
         letterSpacing: 1.5,
-        marginBottom: 8,
+        marginBottom: h(8),
+        textTransform: 'uppercase',
     },
     promptA: {
-        fontSize: 16,
-        fontWeight: '500',
+        fontFamily: 'Inter_500Medium',
+        fontSize: f(16),
         color: BLACK,
-        lineHeight: 24,
+        lineHeight: f(24),
     },
     promptBorder: {
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(13,13,13,0.06)',
-        marginBottom: 16,
-        paddingBottom: 16,
+        marginBottom: h(16),
+        paddingBottom: h(16),
     },
 
     // Tags
     tagWrap: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: w(8),
     },
     tag: {
         backgroundColor: '#FFFFFF',
         borderRadius: 100,
         borderWidth: 1,
         borderColor: 'rgba(13,13,13,0.1)',
-        paddingHorizontal: 14,
-        paddingVertical: 8,
+        paddingHorizontal: w(14),
+        paddingVertical: h(8),
     },
     tagText: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: f(12),
         color: BLACK,
     },
 
@@ -981,21 +1047,21 @@ const styles = StyleSheet.create({
         borderRadius: 100,
         borderWidth: 1,
         borderColor: 'rgba(13,13,13,0.08)',
-        paddingHorizontal: 14,
-        paddingVertical: 8,
+        paddingHorizontal: w(14),
+        paddingVertical: h(8),
         alignItems: 'center',
     },
     pillCategory: {
-        fontSize: 9,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(9),
         color: 'rgba(13,13,13,0.38)',
         textTransform: 'uppercase',
         letterSpacing: 2,
-        marginBottom: 2,
+        marginBottom: h(2),
     },
     pillValue: {
-        fontSize: 12,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
+        fontSize: f(12),
         color: BLACK,
     },
 
@@ -1003,23 +1069,23 @@ const styles = StyleSheet.create({
     lifestyleGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
+        gap: w(10),
     },
     lifestyleCell: {
-        width: (W - 48 - 10) / 2,
+        width: (W - H_PAD * 2 - w(10)) / 2,
         alignItems: 'flex-start',
-        gap: 6,
+        gap: h(6),
     },
     lifestyleLabel: {
-        fontSize: 10,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
         color: 'rgba(13,13,13,0.38)',
         textTransform: 'uppercase',
         letterSpacing: 2,
     },
     lifestyleValue: {
-        fontSize: 15,
-        fontWeight: '700',
+        fontFamily: 'Inter_700Bold',
+        fontSize: f(15),
         color: BLACK,
     },
 
@@ -1028,22 +1094,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 12,
+        paddingVertical: h(13),
     },
     bgRowBorder: {
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(13,13,13,0.07)',
     },
     bgLabel: {
-        fontSize: 10,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
         color: 'rgba(13,13,13,0.38)',
         textTransform: 'uppercase',
         letterSpacing: 2,
     },
     bgValue: {
-        fontSize: 13,
-        fontWeight: '600',
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: f(13),
         color: BLACK,
     },
 
@@ -1055,53 +1121,53 @@ const styles = StyleSheet.create({
         right: 0,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-        paddingHorizontal: 24,
-        paddingTop: 16,
-        backgroundColor: 'rgba(245,240,235,0.95)',
+        gap: w(10),
+        paddingHorizontal: H_PAD,
+        paddingTop: h(14),
+        backgroundColor: 'rgba(245,240,235,0.97)',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 24,
+        shadowOffset: { width: 0, height: -h(6) },
+        shadowOpacity: 0.1,
+        shadowRadius: h(20),
         elevation: 20,
     },
     passBtn: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: w(56),
+        height: w(56),
+        borderRadius: w(28),
         backgroundColor: 'rgba(255,255,255,0.9)',
         borderWidth: 1,
-        borderColor: 'rgba(13,13,13,0.12)',
+        borderColor: 'rgba(13,13,13,0.1)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     sendBtn: {
-        height: 60,
-        borderRadius: 30,
+        height: h(54),
+        borderRadius: w(27),
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
+        gap: w(8),
     },
     sendBtnText: {
-        fontSize: 11,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(11),
         color: CREAM,
         textTransform: 'uppercase',
-        letterSpacing: 3,
+        letterSpacing: 2.5,
     },
     apBtn: {
-        height: 60,
+        height: h(54),
         backgroundColor: BLACK,
-        borderRadius: 30,
+        borderRadius: w(27),
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        gap: 8,
+        paddingHorizontal: w(18),
+        gap: w(7),
     },
     apBtnText: {
-        fontSize: 10,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
         color: CREAM,
         letterSpacing: 1.5,
     },
@@ -1109,40 +1175,40 @@ const styles = StyleSheet.create({
     // Success sheet
     sheetBackdrop: {
         flex: 1,
-        backgroundColor: 'rgba(13,13,13,0.6)',
+        backgroundColor: 'rgba(13,13,13,0.65)',
         justifyContent: 'flex-end',
     },
     sheet: {
         backgroundColor: CREAM,
-        borderTopLeftRadius: 48,
-        borderTopRightRadius: 48,
-        paddingTop: 40,
-        paddingHorizontal: 32,
-        paddingBottom: 52,
+        borderTopLeftRadius: w(44),
+        borderTopRightRadius: w(44),
+        paddingTop: h(36),
+        paddingHorizontal: w(28),
+        paddingBottom: h(52),
         alignItems: 'center',
     },
     sheetAvatarRing: {
-        width: 96,
-        height: 96,
-        borderRadius: 48,
+        width: w(88),
+        height: w(88),
+        borderRadius: w(44),
         borderWidth: 3,
         borderColor: ORANGE,
-        padding: 4,
-        marginBottom: 28,
+        padding: w(4),
+        marginBottom: h(24),
         position: 'relative',
     },
     sheetAvatar: {
         flex: 1,
-        borderRadius: 44,
-        opacity: 0.7,
+        borderRadius: w(40),
+        opacity: 0.75,
     },
     sheetCheck: {
         position: 'absolute',
-        bottom: -4,
-        right: -4,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        bottom: -w(4),
+        right: -w(4),
+        width: w(28),
+        height: w(28),
+        borderRadius: w(14),
         backgroundColor: ORANGE,
         alignItems: 'center',
         justifyContent: 'center',
@@ -1150,90 +1216,114 @@ const styles = StyleSheet.create({
         borderColor: CREAM,
     },
     sheetTitle: {
-        fontSize: 64,
-        fontWeight: '900',
+        fontFamily: 'Inter_900Black',
+        fontSize: f(52),
         color: BLACK,
         letterSpacing: -2,
-        lineHeight: 60,
+        lineHeight: f(50),
         textAlign: 'center',
-        marginBottom: 20,
+        marginBottom: h(18),
     },
     sheetTagRow: {
         flexDirection: 'row',
-        gap: 10,
-        marginBottom: 20,
+        gap: w(8),
+        marginBottom: h(18),
     },
     sheetTag: {
         borderWidth: 1,
-        borderColor: 'rgba(13,13,13,0.2)',
+        borderColor: 'rgba(13,13,13,0.18)',
         borderRadius: 100,
-        paddingHorizontal: 14,
-        paddingVertical: 6,
+        paddingHorizontal: w(14),
+        paddingVertical: h(6),
     },
     sheetTagText: {
-        fontSize: 10,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
         color: BLACK,
         textTransform: 'uppercase',
         letterSpacing: 2,
     },
     sheetSub: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: 'rgba(13,13,13,0.55)',
+        fontFamily: 'Inter_500Medium',
+        fontSize: f(13),
+        color: 'rgba(13,13,13,0.5)',
         textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 32,
+        lineHeight: f(20),
+        marginBottom: h(28),
     },
     sheetBtn: {
-        height: 56,
+        height: h(54),
         backgroundColor: BLACK,
         borderRadius: 100,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
-        paddingHorizontal: 32,
+        gap: w(10),
+        paddingHorizontal: w(28),
         alignSelf: 'stretch',
     },
     sheetBtnText: {
-        fontSize: 11,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(11),
         color: CREAM,
         textTransform: 'uppercase',
-        letterSpacing: 3,
+        letterSpacing: 2.5,
     },
     stepperBtn: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: w(52),
+        height: w(52),
+        borderRadius: w(26),
         backgroundColor: 'rgba(13,13,13,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     toast: {
         position: 'absolute',
-        bottom: 110,
+        bottom: h(110),
         alignSelf: 'center',
         backgroundColor: BLACK,
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderRadius: 30,
+        paddingHorizontal: w(20),
+        paddingVertical: h(13),
+        borderRadius: w(30),
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: w(8),
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
+        shadowOffset: { width: 0, height: h(6) },
         shadowOpacity: 0.2,
-        shadowRadius: 16,
+        shadowRadius: h(14),
         elevation: 10,
         zIndex: 1000,
     },
     toastText: {
-        fontSize: 11,
-        fontWeight: '800',
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(11),
         color: CREAM,
         letterSpacing: 1.5,
         textTransform: 'uppercase',
+    },
+    scrollToggle: {
+        position: 'absolute',
+        right: w(20),
+        bottom: h(160),
+        backgroundColor: BLACK,
+        borderRadius: 100,
+        paddingHorizontal: w(16),
+        paddingVertical: h(10),
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: w(6),
+        zIndex: 100,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    scrollToggleText: {
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: f(10),
+        color: CREAM,
+        letterSpacing: 1,
     },
 });

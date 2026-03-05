@@ -15,6 +15,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 
 interface SexualityScreenProps {
     onNext: () => void;
@@ -24,13 +25,19 @@ interface SexualityScreenProps {
 const SexualityScreen: React.FC<SexualityScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [selectedSexuality, setSelectedSexuality] = useState<string | null>(state.sexuality || null);
 
     const currentIndex = STEP_ORDER.indexOf('sexuality');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!selectedSexuality) return;
+        try {
+            await saveField({ sexuality: selectedSexuality });
+        } catch (error) {
+            console.error("Failed to save sexuality:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'sexuality', value: selectedSexuality });
         onNext();
     };
@@ -118,7 +125,7 @@ const SexualityScreen: React.FC<SexualityScreenProps> = ({ onNext, onBack }) => 
 
             {/* Footer */}
             <FooterFadeIn
-                delay={500}
+                delay={650}
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity

@@ -22,6 +22,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER, STEP_CONFIG } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import SkipButton from '../components/SkipButton';
 import { validatePrompts, sanitizeInput } from '../utils/inputValidation';
 
@@ -48,6 +49,7 @@ interface ProfilePromptsScreenProps {
 const ProfilePromptsScreen: React.FC<ProfilePromptsScreenProps> = ({ onNext, onBack }) => {
     const { state, dispatch } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
 
     const [prompts, setPrompts] = useState(state.prompts);
     const [activePromptIndex, setActivePromptIndex] = useState<number | null>(null);
@@ -91,17 +93,32 @@ const ProfilePromptsScreen: React.FC<ProfilePromptsScreenProps> = ({ onNext, onB
         setPrompts(newPrompts);
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!isReady) return;
         const sanitizedPrompts = prompts.map(p => ({
             ...p,
             answer: p.question !== "Select a prompt..." ? sanitizeInput(p.answer) : p.answer
         }));
+
+        const dbPrompts = sanitizedPrompts.map(p => ({
+            question: p.question,
+            answer: p.answer
+        }));
+
+        // Fire and forget save to Convex
+        saveField({ prompts: dbPrompts }).catch(error => {
+            console.error("Failed to save prompts:", error);
+        });
+
         dispatch({ type: 'SET_FIELD', field: 'prompts', value: sanitizedPrompts });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        // Fire and forget save to Convex
+        saveField({ prompts: null }).catch(error => {
+            console.error("Failed to save prompts skip:", error);
+        });
         onNext();
     };
 
@@ -220,7 +237,14 @@ const ProfilePromptsScreen: React.FC<ProfilePromptsScreenProps> = ({ onNext, onB
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity
-                    style={[styles.btnContinue, !isReady && styles.btnDisabled]}
+                    style={[
+                        styles.btnContinue,
+                        !isReady && styles.btnDisabled,
+                        {
+                            opacity: prompts.some(p => p.answer.trim().length > 0) ? 1 : 0,
+                            pointerEvents: prompts.some(p => p.answer.trim().length > 0) ? 'auto' : 'none'
+                        }
+                    ]}
                     onPress={handleNext}
                     activeOpacity={0.8}
                     disabled={!isReady}

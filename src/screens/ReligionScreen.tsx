@@ -18,6 +18,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import PremiumOptionRow from '../components/PremiumOptionRow';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 import { STEP_ORDER } from '../constants/steps';
 
 // ---------------------------------------------------------------------------
@@ -31,18 +32,29 @@ interface ReligionScreenProps {
 const ReligionScreen: React.FC<ReligionScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [religion, setReligion] = useState<string | null>(state.religion || null);
 
     const currentIndex = STEP_ORDER.indexOf('religion');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!religion) return;
+        try {
+            await saveField({ religion: religion });
+        } catch (error) {
+            console.error("Failed to save religion:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'religion', value: religion });
         onNext();
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
+        try {
+            await saveField({ religion: null });
+        } catch (error) {
+            console.error("Failed to save religion skip:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'religion', value: null });
         onNext();
     };
@@ -78,7 +90,7 @@ const ReligionScreen: React.FC<ReligionScreenProps> = ({ onNext, onBack }) => {
                 <View style={styles.mainContent}>
                     {/* Title - Local implementation to prevent breaking and clipping */}
                     <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text 
+                        <Text
                             style={styles.title}
                             numberOfLines={1}
                             adjustsFontSizeToFit

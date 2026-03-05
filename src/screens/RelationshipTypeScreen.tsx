@@ -14,6 +14,7 @@ import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER } from '../constants/steps';
 import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
 
 interface RelationshipTypeScreenProps {
     onNext: () => void;
@@ -23,13 +24,19 @@ interface RelationshipTypeScreenProps {
 const RelationshipTypeScreen: React.FC<RelationshipTypeScreenProps> = ({ onNext, onBack }) => {
     const { dispatch, state } = useOnboarding();
     const insets = useSafeAreaInsets();
+    const saveField = useUpdateOnboarding();
     const [selectedType, setSelectedType] = useState<string | null>(state.relationshipType || null);
 
     const currentIndex = STEP_ORDER.indexOf('relationshipType');
     const totalSteps = STEP_ORDER.length;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!selectedType) return;
+        try {
+            await saveField({ relationshipType: selectedType });
+        } catch (error) {
+            console.error("Failed to save relationship type:", error);
+        }
         dispatch({ type: 'SET_FIELD', field: 'relationshipType', value: selectedType });
         onNext();
     };
@@ -102,7 +109,7 @@ const RelationshipTypeScreen: React.FC<RelationshipTypeScreenProps> = ({ onNext,
 
             {/* Footer */}
             <FooterFadeIn
-                delay={500}
+                delay={650}
                 style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
             >
                 <TouchableOpacity

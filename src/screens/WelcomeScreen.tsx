@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
-import useGoogleAuth from '../hooks/useGoogleAuth';
+
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 
@@ -68,27 +68,9 @@ interface WelcomeScreenProps {
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNext }) => {
     const insets = useSafeAreaInsets();
-    const { signInWithGoogle, isLoading, error } = useGoogleAuth();
 
-    // Error shimmer animation
+    // Error shimmer animation (kept for structural compatibility)
     const errorOpacity = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        if (error) {
-            Animated.sequence([
-                Animated.timing(errorOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-                Animated.delay(4000),
-                Animated.timing(errorOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-            ]).start();
-        }
-    }, [error, errorOpacity]);
-
-    const handleGoogleLogin = async () => {
-        const success = await signInWithGoogle();
-        if (success) {
-            onNext();
-        }
-    };
 
     return (
         <View style={styles.container}>
@@ -140,32 +122,21 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNext }) => {
                 {/* Bottom Spacer pushed by auto margin */}
                 <View style={{ flex: 1 }} />
 
-                {/* Error Notification */}
-                {error && (
-                    <Animated.View style={[styles.errorContainer, { opacity: errorOpacity }]}>
-                        <Ionicons name="alert-circle" size={14} color={COLORS.primary} />
-                        <Text style={styles.errorText}>{error}</Text>
-                    </Animated.View>
-                )}
+
 
                 {/* Primary Actions */}
                 <FadeUpView delay={600} style={styles.ctaSection}>
                     <TouchableOpacity
-                        style={[styles.btnGoogle, isLoading && styles.btnLoading]}
-                        onPress={handleGoogleLogin}
+                        style={styles.btnGoogle}
+                        onPress={onNext}
                         activeOpacity={0.8}
-                        disabled={isLoading}
                     >
-                        {isLoading ? (
-                            <ActivityIndicator size="small" color={COLORS.black} />
-                        ) : (
-                            <View style={styles.btnContent}>
-                                <View style={styles.googleIconContainer}>
-                                    <Ionicons name="logo-google" size={20} color="#DB4437" />
-                                </View>
-                                <Text style={styles.btnGoogleText}>Continue with Google</Text>
+                        <View style={styles.btnContent}>
+                            <View style={styles.googleIconContainer}>
+                                <Ionicons name="arrow-forward" size={20} color={COLORS.black} />
                             </View>
-                        )}
+                            <Text style={styles.btnGoogleText}>Get Started</Text>
+                        </View>
                     </TouchableOpacity>
 
                     <View style={styles.disclaimerContainer}>

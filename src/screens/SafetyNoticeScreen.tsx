@@ -14,6 +14,7 @@ import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import StepIndicator from '../components/StepIndicator';
 import { STEP_ORDER } from '../constants/steps';
+import { FooterFadeIn } from '../components/OnboardingAnimations';
 
 interface SafetyNoticeScreenProps {
     onNext: () => void;
@@ -87,7 +88,10 @@ const SafetyNoticeScreen: React.FC<SafetyNoticeScreenProps> = ({ onNext, onBack 
                 </Animated.View>
 
                 {/* Footer Action */}
-                <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}>
+                <FooterFadeIn
+                    delay={100}
+                    style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.lg) }]}
+                >
                     <TouchableOpacity
                         style={styles.btnAgree}
                         onPress={handleAgree}
@@ -96,7 +100,7 @@ const SafetyNoticeScreen: React.FC<SafetyNoticeScreenProps> = ({ onNext, onBack 
                         <Text style={styles.btnText}>I Agree</Text>
                         <Feather name="arrow-right" size={20} color={COLORS.white} />
                     </TouchableOpacity>
-                </View>
+                </FooterFadeIn>
             </SafeAreaView>
         </View>
     );
