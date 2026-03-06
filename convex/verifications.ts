@@ -45,17 +45,20 @@ export const submitVerification = mutation({
 });
 
 export const getPendingVerifications = query({
-    args: {},
-    handler: async (ctx) => {
-        const identity = await ctx.auth.getUserIdentity();
+    args: {
+        adminSecret: v.string(),
+    },
+    handler: async (ctx, args) => {
         const adminClerkId = process.env.ADMIN_CLERK_ID;
-
         if (!adminClerkId) {
             throw new Error("ADMIN_CLERK_ID environment variable not set in Convex dashboard");
         }
 
-        if (!identity || identity.subject !== adminClerkId) {
-            throw new Error("Admin access required");
+        if (args.adminSecret !== adminClerkId) {
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity || identity.subject !== adminClerkId) {
+                throw new Error("Admin access required");
+            }
         }
 
         const pendingVerifications = await ctx.db
@@ -92,17 +95,19 @@ export const reviewVerification = mutation({
     args: {
         clerkId: v.string(),
         decision: v.union(v.literal("approved"), v.literal("rejected")),
+        adminSecret: v.string(),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
         const adminClerkId = process.env.ADMIN_CLERK_ID;
-
         if (!adminClerkId) {
             throw new Error("ADMIN_CLERK_ID environment variable not set in Convex dashboard");
         }
 
-        if (!identity || identity.subject !== adminClerkId) {
-            throw new Error("Admin access required");
+        if (args.adminSecret !== adminClerkId) {
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity || identity.subject !== adminClerkId) {
+                throw new Error("Admin access required");
+            }
         }
 
         const pendingVerifications = await ctx.db
