@@ -1,214 +1,217 @@
-import React, { useState } from 'react';
-import StepIndicator from '../components/StepIndicator';
-import { STEP_ORDER } from '../constants/steps';
+import React from 'react';
 import {
     View,
     Text,
-    TextInput,
     TouchableOpacity,
     StyleSheet,
-    KeyboardAvoidingView,
     Platform,
+    SafeAreaView,
+    ScrollView
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../constants/colors';
-import { SPACING } from '../constants/spacing';
-import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
-import { validateName, sanitizeInput } from '../utils/inputValidation';
 import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
+import Svg, { Rect, Path, Circle, Line } from 'react-native-svg';
+import { Feather } from '@expo/vector-icons';
 
 interface NameScreenProps {
-    onNext: () => void;
+    onNext: (role?: string) => void;
     onBack: () => void;
 }
 
 const NameScreen: React.FC<NameScreenProps> = ({ onNext, onBack }) => {
-    const { dispatch, state } = useOnboarding();
+    const { dispatch } = useOnboarding();
     const insets = useSafeAreaInsets();
     const saveField = useUpdateOnboarding();
-    const [firstName, setFirstName] = useState(state.firstName || '');
 
-    const currentIndex = STEP_ORDER.indexOf('name');
-    const totalSteps = STEP_ORDER.length;
+    const [selectedRole, setSelectedRole] = React.useState<string | null>(null);
 
-    const validation = validateName(firstName);
-    const canContinue = validation.isValid;
-
-    const handleNext = async () => {
-        if (!canContinue) return;
-        const value = sanitizeInput(firstName);
-
-        // Fire and forget save to Convex
-        saveField({ firstName: value }).catch(() => undefined);
-
-        dispatch({ type: 'SET_FIELD', field: 'firstName', value });
-        onNext();
+    // Using role
+    const handleSelect = (role: string) => {
+        setSelectedRole(role);
     };
 
-    const footerPaddingBottom =
-        Math.max(insets.bottom, SPACING.lg) + (Platform.OS === 'android' ? SPACING.md : 0);
+    const handleContinue = () => {
+        if (!selectedRole) return;
+        saveField({ role: selectedRole }).catch(() => undefined);
+        dispatch({ type: 'SET_FIELD', field: 'role', value: selectedRole });
+        onNext(selectedRole);
+    };
 
     return (
-        <View style={styles.container}>
-            <StepIndicator
-                currentIndex={currentIndex}
-                totalSteps={totalSteps}
-                onBack={onBack}
-            />
+        <SafeAreaView style={styles.container}>
+            <View style={styles.statusBarPlaceholder} />
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.flex1}
-            >
-                <View style={styles.mainContent}>
-                    {/* Title */}
-                    <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text style={styles.title}>Your{'\n'}Name</Text>
-                        <View style={styles.accentBar} />
-                    </FadeUpView>
-
-                    {/* Input */}
-                    <FadeUpView delay={350}>
-                        <Text style={styles.inputLabel}>First Name</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="e.g. Alexander"
-                            placeholderTextColor={COLORS.gray}
-                            value={firstName}
-                            onChangeText={setFirstName}
-                            autoFocus
-                            autoCapitalize="words"
-                            selectionColor={COLORS.primary}
-                            accessibilityLabel="First name"
-                        />
-                        {firstName.length > 0 && !validation.isValid ? (
-                            <Text style={styles.errorText}>
-                                {validation.error}
-                            </Text>
-                        ) : (
-                            <Text style={styles.helperText}>
-                                Please use your legal name as it appears on your ID.
-                            </Text>
-                        )}
-                    </FadeUpView>
+            <ScrollView contentContainerStyle={styles.content} bounces={false}>
+                <View style={styles.headerSection}>
+                    <Text style={styles.headerTitle}>What brings you to Propoze?</Text>
+                    <Text style={styles.headerDesc}>
+                        We want to tailor your experience so you'll feel right at home.
+                    </Text>
                 </View>
-            </KeyboardAvoidingView>
 
-            {/* Footer */}
-            <FooterFadeIn
-                delay={650}
-                style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
-            >
-                <TouchableOpacity
-                    style={[
-                        styles.btnContinue,
-                        !canContinue && styles.btnDisabled,
-                        {
-                            opacity: firstName.trim().length > 0 ? 1 : 0,
-                            pointerEvents: firstName.trim().length > 0 ? 'auto' : 'none'
-                        }
-                    ]}
-                    onPress={handleNext}
-                    activeOpacity={0.8}
-                    disabled={!canContinue}
-                >
-                    <Text style={styles.btnText}>Continue</Text>
-                    <Feather name="arrow-right" size={20} color={COLORS.white} />
+                <View style={styles.cardsSection}>
+                    <TouchableOpacity
+                        style={[styles.card, selectedRole === 'buyer' && styles.cardSelected]}
+                        activeOpacity={0.8}
+                        onPress={() => handleSelect('buyer')}
+                    >
+                        <View style={styles.cardTextContainer}>
+                            <Text style={styles.cardTitle}>Buying freelance services</Text>
+                            <Text style={styles.cardDesc}>I'm looking for talented people to work with.</Text>
+                        </View>
+                        <View style={styles.iconContainer}>
+                            <Svg fill="none" height="48" viewBox="0 0 48 48" width="48">
+                                <Rect height="32" rx="4" stroke="white" strokeWidth="2" width="44" x="2" y="10" />
+                                <Circle cx="24" cy="24" r="6" stroke="#1dbf73" strokeWidth="2" />
+                                <Line stroke="#1dbf73" strokeLinecap="round" strokeWidth="2" x1="28.5" x2="33" y1="28.5" y2="33" />
+                                <Circle cx="10" cy="38" fill="white" r="1.5" />
+                            </Svg>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.card, selectedRole === 'freelancer' && styles.cardSelected]}
+                        activeOpacity={0.8}
+                        onPress={() => handleSelect('freelancer')}
+                    >
+                        <View style={styles.cardTextContainer}>
+                            <Text style={styles.cardTitle}>Selling freelance services</Text>
+                            <Text style={styles.cardDesc}>I'd like to offer my services.</Text>
+                        </View>
+                        <View style={styles.iconContainer}>
+                            <Svg fill="none" height="48" viewBox="0 0 48 48" width="48">
+                                <Rect height="32" rx="4" stroke="white" strokeWidth="2" width="44" x="2" y="10" />
+                                <Path d="M28 20L31 17L34 20L31 23L28 20Z" stroke="#1dbf73" strokeWidth="2" />
+                                <Path d="M22 26L28 20M22 26L20 28M22 26L24 24" stroke="#1dbf73" strokeWidth="2" />
+                                <Circle cx="10" cy="38" fill="white" r="1.5" />
+                            </Svg>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+
+            <View style={[styles.footerSection, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+                <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+                    <Feather name="arrow-left" size={20} color="#1dbf73" />
                 </TouchableOpacity>
-            </FooterFadeIn>
-        </View>
+                <TouchableOpacity
+                    style={[styles.continueButton, !selectedRole && styles.btnDisabled]}
+                    onPress={handleContinue}
+                    activeOpacity={0.8}
+                    disabled={!selectedRole}
+                >
+                    <Text style={styles.continueButtonText}>Continue</Text>
+                </TouchableOpacity>
+            </View>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.surface,
+        backgroundColor: '#000000',
     },
-    flex1: {
-        flex: 1,
+    statusBarPlaceholder: {
+        height: Platform.OS === 'android' ? 24 : 0,
     },
-    mainContent: {
-        flex: 1,
-        justifyContent: 'center',
-        paddingHorizontal: SPACING.xl,
+    content: {
+        flexGrow: 1,
+        paddingHorizontal: 24,
+        paddingTop: 48,
     },
-    titleContainer: {
-        marginBottom: SPACING.xxl,
+    headerSection: {
+        marginBottom: 40,
     },
-    title: {
-        fontFamily: 'PlayfairDisplay_700Bold',
-        fontSize: 72,
-        lineHeight: 84,
-        letterSpacing: -2,
-        textTransform: 'uppercase',
-        color: COLORS.text,
-        paddingTop: Platform.OS === 'ios' ? 8 : 2,
-        paddingBottom: 2,
-    },
-    accentBar: {
-        width: 48,
-        height: 6,
-        backgroundColor: COLORS.primary,
-        marginTop: SPACING.md,
-        borderRadius: 3,
-    },
-    inputLabel: {
+    headerTitle: {
         fontFamily: 'Inter_700Bold',
-        fontSize: 10,
-        color: COLORS.text,
-        textTransform: 'uppercase',
-        letterSpacing: 2,
-        marginBottom: SPACING.sm,
+        fontSize: 30,
+        lineHeight: 36,
+        color: '#ffffff',
+        marginBottom: 16,
+        letterSpacing: -0.5,
     },
-    input: {
-        width: '100%',
-        fontFamily: 'Inter_500Medium',
-        borderWidth: 2,
-        borderColor: COLORS.black,
-        paddingVertical: 20,
-        paddingHorizontal: SPACING.lg,
-        fontSize: 24,
-        color: COLORS.black,
-    },
-    helperText: {
+    headerDesc: {
         fontFamily: 'Inter_400Regular',
-        marginTop: SPACING.sm,
-        fontSize: 14,
-        color: COLORS.gray,
-        lineHeight: 20,
+        fontSize: 18,
+        lineHeight: 28,
+        color: '#9ca3af',
     },
-    errorText: {
-        fontFamily: 'Inter_500Medium',
-        marginTop: SPACING.sm,
-        fontSize: 14,
-        color: COLORS.primary, // Using primary color (red/peach) for error
-        lineHeight: 20,
-    },
-    footer: {
-        paddingHorizontal: SPACING.xl,
-    },
-    btnContinue: {
+    cardsSection: {
         width: '100%',
-        backgroundColor: COLORS.black,
+    },
+    card: {
+        width: '100%',
+        backgroundColor: '#1a1a1a',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#333333',
+        padding: 24,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    cardSelected: {
+        borderColor: '#1dbf73',
+        backgroundColor: 'rgba(29, 191, 115, 0.05)',
+    },
+    cardTextContainer: {
+        flex: 1,
+        paddingRight: 16,
+    },
+    cardTitle: {
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 18,
+        color: '#ffffff',
+        marginBottom: 4,
+    },
+    cardDesc: {
+        fontFamily: 'Inter_400Regular',
+        fontSize: 14,
+        color: '#9ca3af',
+    },
+    iconContainer: {
+        width: 64,
         height: 64,
-        borderRadius: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: 0.8,
+    },
+    footerSection: {
+        paddingHorizontal: 24,
+        paddingTop: 16,
+        flexDirection: 'row',
+        gap: 12,
+    },
+    backBtn: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: '#333',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+    },
+    continueButton: {
+        flex: 1,
+        backgroundColor: '#ffffff',
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 56,
     },
     btnDisabled: {
-        opacity: 0.3,
+        backgroundColor: '#333',
+        opacity: 0.5,
     },
-    btnText: {
+    continueButtonText: {
         fontFamily: 'Inter_700Bold',
-        color: COLORS.white,
-        fontSize: 16,
-        textTransform: 'uppercase',
-        letterSpacing: 1.4,
-        marginRight: SPACING.sm,
+        fontSize: 18,
+        color: '#000000',
     },
 });
 

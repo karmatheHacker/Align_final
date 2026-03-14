@@ -1,18 +1,23 @@
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    TextInput,
+    useWindowDimensions,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView
+} from 'react-native';
 import { useOAuth } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { COLORS } from '../constants/colors';
-import { SPACING } from '../constants/spacing';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
-import { w, h, f } from '../utils/responsive';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface WelcomeScreenProps {
     onNext: () => void;
@@ -21,6 +26,8 @@ interface WelcomeScreenProps {
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNext }) => {
     const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
     const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
+    const isDesktop = width >= 768;
 
     useEffect(() => {
         void WebBrowser.warmUpAsync();
@@ -36,191 +43,314 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNext }) => {
 
             if (createdSessionId && setActive) {
                 await setActive({ session: createdSessionId });
-            } else {
-                // Use signIn or signUp for next steps such as MFA
             }
         } catch {
             // User cancellations and OAuth errors are silently swallowed here
         }
     }, [startOAuthFlow]);
 
-    return (
-        <View style={styles.container}>
-            {/* Background Watermark */}
-            <View style={styles.watermarkContainer}>
-                <Text style={styles.watermarkText} numberOfLines={1}>ALIGN</Text>
+    const renderFeature = (icon: any, text: string) => (
+        <View style={styles.featureItem} key={text}>
+            <View style={styles.featureIconContainer}>
+                <Ionicons name={icon} size={20} color="#6366f1" />
+            </View>
+            <Text style={styles.featureText}>{text}</Text>
+        </View>
+    );
+
+    const leftContent = (
+        <View style={[styles.leftPane, isDesktop && styles.leftPaneDesktop, { paddingTop: isDesktop ? 60 : Math.max(insets.top + 40, 60) }]}>
+            <View style={styles.logoContainer}>
+                <Ionicons name="layers" size={32} color="#6366f1" />
+                <Text style={styles.logoText}>Propoze</Text>
             </View>
 
-            <View style={[styles.content, {
-                paddingTop: insets.top + (SCREEN_WIDTH > 400 ? 60 : 40),
-                paddingBottom: Math.max(insets.bottom, 40)
-            }]}>
-                <View style={styles.logoContainer}>
-                    <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>
-                        ALIGN
-                    </Text>
-                </View>
+            <View style={styles.heroContent}>
+                <Text style={[styles.headline, isDesktop && { fontSize: 48, lineHeight: 56 }]}>
+                    Build Smarter Freelance Proposals with AI
+                </Text>
+                <Text style={styles.subtext}>
+                    Upload project briefs, explore requirements with conversational AI, and submit highly accurate bids.
+                </Text>
 
-                <View style={styles.taglineContainer}>
-                    <Text style={styles.tagline}>
-                        Dating for people who are done wasting time
-                    </Text>
-                </View>
-
-                <View style={styles.illustrationCard}>
-                    <Svg viewBox="0 0 400 288" style={styles.svg}>
-                        <Rect width="400" height="288" fill="#ede8e0" />
-                        <Line x1="0" y1="72" x2="400" y2="72" stroke="#d8d2c8" strokeWidth={0.5} />
-                        <Line x1="0" y1="144" x2="400" y2="144" stroke="#d8d2c8" strokeWidth={0.5} />
-                        <Line x1="0" y1="216" x2="400" y2="216" stroke="#d8d2c8" strokeWidth={0.5} />
-                        <Path
-                            d="M -20 200 C 60 200, 80 88, 200 88 C 320 88, 340 200, 440 200"
-                            stroke={COLORS.black}
-                            strokeWidth="18"
-                            fill="none"
-                            strokeLinecap="round"
-                        />
-                        <Circle cx="305" cy="136" r="18" fill={COLORS.primary} />
-                    </Svg>
-                </View>
-
-                <View style={{ flex: 1 }} />
-
-                <View style={styles.ctaSection}>
-                    <TouchableOpacity
-                        style={styles.btnGoogle}
-                        onPress={handleSignInWithGoogle}
-                        activeOpacity={0.8}
-                    >
-                        <View style={styles.btnContent}>
-                            <Ionicons name="logo-google" size={w(20)} color={COLORS.black} style={styles.googleIconContainer} />
-                            <Text style={styles.btnGoogleText}>Continue with Google</Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    <View style={styles.disclaimerContainer}>
-                        <Ionicons name="lock-closed" size={12} color={COLORS.black} style={{ opacity: 0.5 }} />
-                        <Text style={styles.disclaimerText}>
-                            High Intent Only • No Games
-                        </Text>
-                    </View>
+                <View style={styles.featuresList}>
+                    {renderFeature('document-text', 'AI understands project documents instantly')}
+                    {renderFeature('chatbubble-ellipses', 'Ask questions about client requirements')}
+                    {renderFeature('flash', 'Create precise, context-aware bids')}
                 </View>
             </View>
         </View>
+    );
+
+    const rightContent = (
+        <View style={[
+            styles.rightPane,
+            isDesktop ? styles.rightPaneDesktop : styles.rightPaneMobile,
+            { paddingBottom: Math.max(insets.bottom + 40, 40) }
+        ]}>
+            <View style={styles.formContainer}>
+                <Text style={styles.formTitle}>Get Started</Text>
+                <Text style={styles.formSubtitle}>Enter your details to sign in or create an account</Text>
+
+                <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Email address</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="name@company.com"
+                        placeholderTextColor="#475569"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
+                </View>
+
+                {/* Primary CTA */}
+                <TouchableOpacity style={styles.primaryButton} activeOpacity={0.8} onPress={() => { /* Placeholder */ }}>
+                    <Text style={styles.primaryButtonText}>Continue</Text>
+                </TouchableOpacity>
+
+                <View style={styles.dividerContainer}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>or click below</Text>
+                    <View style={styles.dividerLine} />
+                </View>
+
+                {/* Secondary CTA: Google */}
+                <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={handleSignInWithGoogle}
+                    activeOpacity={0.8}
+                >
+                    <Ionicons name="logo-google" size={20} color="#f8fafc" />
+                    <Text style={styles.secondaryButtonText}>Sign in with Google</Text>
+                </TouchableOpacity>
+
+                {/* Secondary CTA: Email */}
+                <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => { /* Placeholder */ }}
+                    activeOpacity={0.8}
+                >
+                    <Ionicons name="mail" size={20} color="#f8fafc" />
+                    <Text style={styles.secondaryButtonText}>Sign in with Email</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    if (isDesktop) {
+        return (
+            <SafeAreaView style={[styles.container, { flexDirection: 'row' }]}>
+                {leftContent}
+                {rightContent}
+            </SafeAreaView>
+        );
+    }
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={styles.container}
+            >
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    bounces={false}
+                >
+                    {leftContent}
+                    {rightContent}
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.surface,
+        backgroundColor: '#0f172a', // Slate 900
     },
-    watermarkContainer: {
-        position: 'absolute',
-        bottom: -SCREEN_WIDTH * 0.1,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-        zIndex: 0,
+    leftPane: {
+        paddingHorizontal: 32,
+        paddingBottom: 40,
+        backgroundColor: '#0f172a',
     },
-    watermarkText: {
-        fontSize: SCREEN_WIDTH * 0.45,
-        fontFamily: 'Inter_700Bold',
-        color: COLORS.black,
-        opacity: 0.04,
-        letterSpacing: -10,
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: SPACING.xl,
-        zIndex: 1,
+    leftPaneDesktop: {
+        flex: 1.2,
+        paddingHorizontal: 60,
+        justifyContent: 'center',
     },
     logoContainer: {
-        marginBottom: SPACING.xs,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 60,
+    },
+    logoText: {
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: 26,
+        color: '#f8fafc',
+        marginLeft: 12,
+        letterSpacing: -0.5,
+    },
+    heroContent: {
+        maxWidth: 540,
+    },
+    headline: {
+        fontFamily: 'Inter_800ExtraBold',
+        fontSize: 36,
+        lineHeight: 44,
+        color: '#f8fafc',
+        marginBottom: 24,
+        letterSpacing: -1,
+    },
+    subtext: {
+        fontFamily: 'Inter_400Regular',
+        fontSize: 18,
+        lineHeight: 28,
+        color: '#94a3b8',
+        marginBottom: 48,
+    },
+    featuresList: {
+        flexDirection: 'column',
+    },
+    featureItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    featureIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(99, 102, 241, 0.2)',
+    },
+    featureText: {
+        fontFamily: 'Inter_500Medium',
+        fontSize: 16,
+        color: '#e2e8f0',
+        flex: 1,
+        lineHeight: 24,
+    },
+    rightPane: {
+        backgroundColor: '#1e293b', // Slate 800
+        paddingHorizontal: 32,
+        paddingTop: 48,
+    },
+    rightPaneDesktop: {
+        width: 440,
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: -8, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 24,
+        elevation: 12,
+        paddingHorizontal: 48,
+    },
+    rightPaneMobile: {
+        flex: 1,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    formContainer: {
         width: '100%',
+        maxWidth: 380,
+        alignSelf: 'center',
     },
-    logo: {
-        fontFamily: 'PlayfairDisplay_700Bold',
-        fontSize: f(88),
-        lineHeight: f(96),
-        letterSpacing: -4,
-        color: COLORS.black,
-        textTransform: 'uppercase',
-        includeFontPadding: false,
-        textAlign: 'left',
-    },
-    taglineContainer: {
-        marginBottom: SPACING.xxl,
-        width: '90%',
-    },
-    tagline: {
+    formTitle: {
         fontFamily: 'Inter_700Bold',
-        fontSize: SCREEN_WIDTH > 400 ? f(20) : f(18),
-        lineHeight: SCREEN_WIDTH > 400 ? f(28) : f(24),
-        color: COLORS.black,
+        fontSize: 28,
+        color: '#f8fafc',
+        marginBottom: 8,
+        letterSpacing: -0.5,
+    },
+    formSubtitle: {
+        fontFamily: 'Inter_400Regular',
+        fontSize: 16,
+        color: '#94a3b8',
+        marginBottom: 40,
+    },
+    inputContainer: {
+        marginBottom: 24,
+    },
+    inputLabel: {
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 14,
+        color: '#cbd5e1',
+        marginBottom: 8,
+    },
+    input: {
+        backgroundColor: '#0f172a',
+        borderWidth: 1,
+        borderColor: '#334155',
+        borderRadius: 10,
+        height: 52,
+        paddingHorizontal: 16,
+        fontFamily: 'Inter_400Regular',
+        fontSize: 16,
+        color: '#f8fafc',
+    },
+    primaryButton: {
+        backgroundColor: '#6366f1',
+        height: 52,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 24,
+        shadowColor: '#6366f1',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    primaryButtonText: {
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 16,
+        color: '#ffffff',
+    },
+    dividerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#334155',
+    },
+    dividerText: {
+        marginHorizontal: 16,
+        fontFamily: 'Inter_500Medium',
+        fontSize: 13,
+        color: '#64748b',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    illustrationCard: {
-        width: '100%',
-        aspectRatio: 1 / 0.72,
-        backgroundColor: '#ede8e0',
-        borderRadius: w(40),
-        overflow: 'hidden',
+    secondaryButton: {
+        backgroundColor: '#0f172a',
         borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
-    },
-    svg: {
-        width: '100%',
-        height: '100%',
-    },
-    ctaSection: {
-        marginTop: SPACING.xl,
-        width: '100%',
-    },
-    btnGoogle: {
-        backgroundColor: COLORS.white,
-        height: h(54),
-        borderRadius: w(27),
-        borderWidth: 2,
-        borderColor: COLORS.black,
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    btnContent: {
-        flex: 1,
+        borderColor: '#334155',
+        height: 52,
+        borderRadius: 10,
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'center',
-    },
-    googleIconContainer: {
-        marginRight: w(12),
-        transform: [{ translateY: -1 }],
-    },
-    btnGoogleText: {
-        fontFamily: 'Inter_700Bold',
-        fontSize: f(15),
-        color: COLORS.black,
-        textTransform: 'uppercase',
-        letterSpacing: 1.5,
-        includeFontPadding: false,
-    },
-    disclaimerContainer: {
-        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: h(24),
-        gap: w(8),
+        marginBottom: 16,
     },
-    disclaimerText: {
-        fontFamily: 'Inter_700Bold',
-        fontSize: f(10),
-        color: COLORS.black,
-        opacity: 0.5,
-        textTransform: 'uppercase',
-        letterSpacing: 2,
+    secondaryButtonText: {
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 16,
+        color: '#e2e8f0',
+        marginLeft: 12,
     },
 });
+

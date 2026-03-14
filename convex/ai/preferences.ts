@@ -3,7 +3,7 @@ import { action, internalAction, internalMutation, internalQuery } from "../_gen
 import { internal } from "../_generated/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function calculateAge(birthday: string | undefined): number {
+function calculateAge(birthday: string | null | undefined): number {
     if (!birthday) return 0;
     try {
         const birthDate = new Date(birthday);
@@ -144,7 +144,7 @@ export const analyzeAndLearnPreferences = internalAction({
         // Fetch profile data for each liked person
         const likedProfiles: Array<{
             clerkId: string;
-            birthday?: string;
+            birthday?: string | null;
             education?: string | null;
             religion?: string | null;
             datingIntention?: string | null;

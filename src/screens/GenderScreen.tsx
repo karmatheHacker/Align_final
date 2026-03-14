@@ -5,231 +5,413 @@ import {
     TouchableOpacity,
     StyleSheet,
     Platform,
+    SafeAreaView,
+    ScrollView,
+    Modal,
+    ActivityIndicator,
+    Alert
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../constants/colors';
-import { SPACING } from '../constants/spacing';
-import StepIndicator from '../components/StepIndicator';
-import { STEP_ORDER } from '../constants/steps';
-import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
+import { Feather } from '@expo/vector-icons';
 import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
+import Svg, { Path } from 'react-native-svg';
+import * as DocumentPicker from 'expo-document-picker';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
-interface GenderScreenProps {
+interface ProfileBuildOptionScreenProps {
     onNext: () => void;
     onBack: () => void;
 }
 
-const GenderScreen: React.FC<GenderScreenProps> = ({ onNext, onBack }) => {
-    const { dispatch, state } = useOnboarding();
+const BUILD_OPTIONS = [
+    {
+        id: 'upload_resume',
+        title: 'Upload resume',
+        icon: (
+            <Svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+            </Svg>
+        ),
+    },
+    {
+        id: 'fill_manually',
+        title: 'Fill out manually',
+        icon: (
+            <Svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </Svg>
+        ),
+    },
+];
+
+const GenderScreen: React.FC<ProfileBuildOptionScreenProps> = ({ onNext, onBack }) => {
+    const { dispatch } = useOnboarding();
     const insets = useSafeAreaInsets();
     const saveField = useUpdateOnboarding();
-    const [selectedGender, setSelectedGender] = useState<string | null>(state.gender || null);
+    const [selected, setSelected] = useState<string | null>(null);
 
-    const currentIndex = STEP_ORDER.indexOf('gender');
-    const totalSteps = STEP_ORDER.length;
+    // Modal state
+    const [modalVisible, setModalVisible] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
 
-    const handleNext = async () => {
-        if (!selectedGender) return;
-        try {
-            await saveField({ gender: selectedGender }); } catch {
-            // Save is best-effort; user proceeds regardless
-        }
-        dispatch({ type: 'SET_FIELD', field: 'gender', value: selectedGender });
+    const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+    const saveResume = useMutation(api.files.saveResume);
+
+    const proceedToNext = async (buildOption: string) => {
+        saveField({ profileBuildOption: buildOption }).catch(() => undefined);
+        dispatch({ type: 'SET_FIELD', field: 'profileBuildOption', value: buildOption });
         onNext();
     };
 
-    const options = [
-        { id: 'woman', label: 'Woman' },
-        { id: 'man', label: 'Man' },
-        { id: 'nonbinary', label: 'Non-Binary' },
-    ];
+    const handleContinue = () => {
+        if (!selected) return;
+        if (selected === 'upload_resume') {
+            setModalVisible(true);
+        } else {
+            proceedToNext('fill_manually');
+        }
+    };
 
-    const footerPaddingBottom =
-        Math.max(insets.bottom, SPACING.lg) + (Platform.OS === 'android' ? SPACING.md : 0);
+    const handleFileUpload = async () => {
+        setUploadError('');
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled || !result.assets || result.assets.length === 0) {
+                return;
+            }
+
+            const file = result.assets[0];
+
+            // Size validation (Max 5MB)
+            if (file.size && file.size > 5 * 1024 * 1024) {
+                setUploadError('File exceeds 5MB limit.');
+                return;
+            }
+
+            setIsUploading(true);
+            const uploadUrl = await generateUploadUrl();
+            if (!uploadUrl) throw new Error("Could not generate upload URL");
+
+            const response = await fetch(file.uri);
+            const blob = await response.blob();
+
+            const uploadResult = await fetch(uploadUrl, {
+                method: "POST",
+                headers: { "Content-Type": file.mimeType || 'application/octet-stream' },
+                body: blob,
+            });
+
+            if (!uploadResult.ok) throw new Error("Upload to storage failed");
+            const { storageId } = await uploadResult.json();
+
+            // Save to convex
+            await saveResume({ storageId });
+
+            // Close modal & proceed
+            setModalVisible(false);
+            proceedToNext('upload_resume');
+
+        } catch (error) {
+            console.error(error);
+            setUploadError('An error occurred during upload. Please try again.');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     return (
-        <View style={styles.container}>
-            <StepIndicator
-                currentIndex={currentIndex}
-                totalSteps={totalSteps}
-                onBack={onBack}
-            />
+        <SafeAreaView style={styles.container}>
+            <View style={styles.statusBarPlaceholder} />
 
-            <View style={styles.flex1}>
-                <View style={styles.mainContent}>
-                    {/* Title */}
-                    <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text
-                            style={styles.title}
-                            numberOfLines={1}
-                            adjustsFontSizeToFit
-                        >
-                            Gender
-                        </Text>
-                        <View style={styles.accentBar} />
-                    </FadeUpView>
-
-                    {/* Options */}
-                    <FadeUpView delay={350} style={styles.optionsList}>
-                        {options.map((opt) => {
-                            const isSelected = selectedGender === opt.id;
-                            return (
-                                <TouchableOpacity
-                                    key={opt.id}
-                                    activeOpacity={0.7}
-                                    onPress={() => setSelectedGender(opt.id)}
-                                    style={[
-                                        styles.optionBtn,
-                                        isSelected && styles.optionBtnSelected,
-                                    ]}
-                                >
-                                    <View style={styles.optionInfo}>
-                                        <Text style={[
-                                            styles.optionText,
-                                            isSelected && styles.optionTextSelected
-                                        ]}>
-                                            {opt.label}
-                                        </Text>
-                                    </View>
-                                    <View style={[
-                                        styles.radioRing,
-                                        isSelected && styles.radioRingSelected
-                                    ]}>
-                                        {isSelected && <View style={styles.radioDot} />}
-                                    </View>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </FadeUpView>
+            <ScrollView contentContainerStyle={styles.content} bounces={false}>
+                <View style={styles.headerSection}>
+                    <Text style={styles.headerTitle}>How would you like to start building your profile?</Text>
+                    <Text style={styles.headerDesc}>
+                        A strong, complete profile helps clients find you and increases your chances of getting hired.
+                    </Text>
                 </View>
+
+                <View style={styles.optionsContainer}>
+                    {BUILD_OPTIONS.map((option) => {
+                        const isSelected = selected === option.id;
+                        return (
+                            <TouchableOpacity
+                                key={option.id}
+                                style={[
+                                    styles.card,
+                                    isSelected && styles.cardSelected,
+                                ]}
+                                activeOpacity={0.8}
+                                onPress={() => setSelected(option.id)}
+                            >
+                                <View style={styles.cardIcon}>
+                                    {React.cloneElement(option.icon, { color: isSelected ? '#1dbf73' : '#1dbf73' })}
+                                </View>
+                                <Text style={styles.cardTitle}>{option.title}</Text>
+                                <View style={[
+                                    styles.radioIndicator,
+                                    isSelected && styles.radioIndicatorSelected
+                                ]} />
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            </ScrollView>
+
+            <View style={[styles.footerSection, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+                <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+                    <Feather name="arrow-left" size={20} color="#1dbf73" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.nextBtn,
+                        selected && styles.nextBtnActive
+                    ]}
+                    onPress={handleContinue}
+                    activeOpacity={0.8}
+                    disabled={!selected}
+                >
+                    <Text style={[
+                        styles.nextBtnText,
+                        selected && styles.nextBtnTextActive
+                    ]}>
+                        Next
+                    </Text>
+                </TouchableOpacity>
             </View>
 
-            {/* Footer */}
-            <FooterFadeIn
-                delay={650}
-                style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
+            {/* Bottom Sheet Modal for Upload */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
             >
-                <TouchableOpacity
-                    style={[styles.btnContinue, !selectedGender && styles.btnDisabled]}
-                    onPress={handleNext}
-                    activeOpacity={0.8}
-                    disabled={!selectedGender}
-                >
-                    <Text style={styles.btnText}>Continue</Text>
-                    <Feather name="arrow-right" size={20} color={COLORS.white} />
-                </TouchableOpacity>
-            </FooterFadeIn>
-        </View>
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity
+                        style={{ flex: 1 }}
+                        activeOpacity={1}
+                        onPress={() => !isUploading && setModalVisible(false)}
+                    />
+                    <View style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 32) }]}>
+                        <TouchableOpacity
+                            style={styles.closeBtn}
+                            onPress={() => setModalVisible(false)}
+                            disabled={isUploading}
+                        >
+                            <Text style={styles.closeBtnText}>×</Text>
+                        </TouchableOpacity>
+
+                        <Text style={styles.modalTitle}>Upload resume</Text>
+
+                        <Text style={styles.fileInfo}>Max file size: 5MB</Text>
+                        <Text style={[styles.fileInfo, { marginBottom: 20 }]}>Supported file types: PDF, DOC, DOCX</Text>
+
+                        <TouchableOpacity
+                            style={styles.uploadArea}
+                            onPress={handleFileUpload}
+                            disabled={isUploading}
+                        >
+                            {isUploading ? (
+                                <ActivityIndicator color="#1dbf73" size="small" />
+                            ) : (
+                                <Text style={styles.uploadAreaText}>Choose a file</Text>
+                            )}
+                        </TouchableOpacity>
+
+                        {uploadError ? (
+                            <View style={styles.errorMsg}>
+                                <Text style={styles.errorIcon}>⚠️</Text>
+                                <Text style={styles.errorText}>{uploadError}</Text>
+                            </View>
+                        ) : null}
+                    </View>
+                </View>
+            </Modal>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.surface,
+        backgroundColor: '#0f1012',
     },
-    flex1: {
-        flex: 1,
+    statusBarPlaceholder: {
+        height: Platform.OS === 'android' ? 24 : 0,
     },
-    mainContent: {
-        flex: 1,
-        paddingHorizontal: SPACING.xl,
-        justifyContent: 'center',
-    },
-    titleContainer: {
-        marginBottom: SPACING.xxl,
-    },
-    title: {
-        fontFamily: 'PlayfairDisplay_700Bold',
-        fontSize: 72,
-        lineHeight: 84,
-        letterSpacing: -2,
-        textTransform: 'uppercase',
-        color: COLORS.text,
-        paddingTop: Platform.OS === 'ios' ? 8 : 2,
-        paddingBottom: 2,
-    },
-    accentBar: {
-        width: 48,
-        height: 6,
-        backgroundColor: COLORS.primary,
-        marginTop: SPACING.md,
-        borderRadius: 3,
-    },
-    optionsList: {
-        gap: SPACING.md,
-    },
-    optionBtn: {
-        width: '100%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 20,
+    content: {
+        flexGrow: 1,
         paddingHorizontal: 24,
+        paddingTop: 20,
+    },
+    headerSection: {
+        marginTop: 20,
+        marginBottom: 32,
+    },
+    headerTitle: {
+        fontFamily: 'Inter_700Bold',
+        fontSize: 28,
+        lineHeight: 34,
+        color: '#ffffff',
+        marginBottom: 12,
+    },
+    headerDesc: {
+        fontFamily: 'Inter_400Regular',
+        fontSize: 15,
+        lineHeight: 22,
+        color: '#e0e0e0',
+        opacity: 0.8,
+    },
+    optionsContainer: {
+        gap: 16,
+        marginBottom: 100,
+    },
+    card: {
+        backgroundColor: '#1c1c1c',
+        borderRadius: 12,
+        padding: 24,
+        flexDirection: 'column',
+        gap: 12,
+        borderWidth: 1.5,
+        borderColor: 'transparent',
+    },
+    cardSelected: {
+        borderColor: '#1dbf73',
+        backgroundColor: '#252525',
+    },
+    cardIcon: {
+        marginBottom: 4,
+    },
+    cardTitle: {
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 18,
+        color: '#ffffff',
+    },
+    radioIndicator: {
+        position: 'absolute',
+        top: 24,
+        right: 24,
+        width: 20,
+        height: 20,
         borderWidth: 2,
-        borderColor: COLORS.black,
+        borderColor: '#444',
+        borderRadius: 10,
+    },
+    radioIndicatorSelected: {
+        borderColor: '#1dbf73',
+        backgroundColor: '#1dbf73',
+    },
+    footerSection: {
+        paddingHorizontal: 24,
+        paddingTop: 16,
+        flexDirection: 'row',
+        gap: 12,
+    },
+    backBtn: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: '#333',
+        alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: 'transparent',
     },
-    optionBtnSelected: {
-        backgroundColor: COLORS.black,
-    },
-    optionInfo: {
+    nextBtn: {
         flex: 1,
-        marginRight: 16,
-    },
-    optionText: {
-        fontFamily: 'Inter_700Bold',
-        fontSize: 15,
-        color: COLORS.black,
-        textTransform: 'uppercase',
-        letterSpacing: 1.2,
-    },
-    optionTextSelected: {
-        color: COLORS.surface,
-    },
-    radioRing: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        borderWidth: 2,
-        borderColor: COLORS.black,
+        backgroundColor: '#333333',
+        paddingVertical: 16,
+        borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
+        height: 56,
     },
-    radioRingSelected: {
-        borderColor: COLORS.surface,
+    nextBtnActive: {
+        backgroundColor: '#ffffff', // As per the newest HTML styles
     },
-    radioDot: {
-        width: 11,
-        height: 11,
-        borderRadius: 5.5,
-        backgroundColor: COLORS.surface,
-    },
-    footer: {
-        paddingHorizontal: SPACING.xl,
-    },
-    btnContinue: {
-        width: '100%',
-        backgroundColor: COLORS.black,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: 64,
-        borderRadius: 0,
-    },
-    btnDisabled: {
-        opacity: 0.3,
-    },
-    btnText: {
-        fontFamily: 'Inter_700Bold',
-        color: COLORS.white,
+    nextBtnText: {
+        fontFamily: 'Inter_600SemiBold',
         fontSize: 16,
-        textTransform: 'uppercase',
-        letterSpacing: 1.4,
-        marginRight: SPACING.sm,
+        color: '#888888',
     },
+    nextBtnTextActive: {
+        color: '#000000',
+    },
+    /* Modal Styles */
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'flex-end',
+    },
+    bottomSheet: {
+        backgroundColor: '#1c1c1c',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingHorizontal: 24,
+        paddingTop: 32,
+    },
+    closeBtn: {
+        position: 'absolute',
+        top: 16,
+        right: 20,
+        padding: 4,
+    },
+    closeBtnText: {
+        fontSize: 28,
+        color: '#e0e0e0',
+        lineHeight: 28,
+    },
+    modalTitle: {
+        fontFamily: 'Inter_700Bold',
+        fontSize: 24,
+        color: '#ffffff',
+        marginBottom: 24,
+    },
+    fileInfo: {
+        fontFamily: 'Inter_400Regular',
+        fontSize: 14,
+        color: '#e0e0e0',
+        marginBottom: 8,
+    },
+    uploadArea: {
+        borderWidth: 1.5,
+        borderColor: '#444',
+        borderRadius: 8,
+        padding: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+    },
+    uploadAreaText: {
+        fontFamily: 'Inter_600SemiBold',
+        color: '#1dbf73',
+    },
+    errorMsg: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+        marginTop: 4,
+    },
+    errorIcon: {
+        fontSize: 14,
+        color: '#ff4d4d',
+    },
+    errorText: {
+        fontFamily: 'Inter_400Regular',
+        color: '#ff4d4d',
+        fontSize: 14,
+        flex: 1,
+        lineHeight: 20,
+    }
 });
 
 export default GenderScreen;

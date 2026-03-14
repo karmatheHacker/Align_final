@@ -5,6 +5,11 @@ interface HeightData {
     unit: 'FT' | 'CM';
 }
 
+export interface Language {
+    language: string;
+    proficiency: string;
+}
+
 export interface Prompt {
     id: number;
     question: string;
@@ -12,7 +17,15 @@ export interface Prompt {
 }
 
 type State = {
-    firstName: string;
+    name: string;
+    role: string;
+    freelancerType: string;
+    profileBuildOption: string;
+    category: string;
+    specializations: string[];
+    title: string;
+    hourlyRate: number;
+    languages: Language[];
     birthday: string;
     gender: string;
     pronouns: string[];
@@ -40,12 +53,16 @@ type State = {
     location: string;
     locationCoords: { latitude: number; longitude: number } | null;
     photos: string[];
-    bio: string;
     publicBio: string;
     aiBio: string;
     prompts: Prompt[];
     verificationStatus: string;
     notificationsEnabled: boolean;
+    country: string;
+    streetAddress: string;
+    aptSuite: string;
+    linkedIn: string;
+    github: string;
 };
 
 type Action =
@@ -53,7 +70,15 @@ type Action =
     | { type: 'RESET' };
 
 const initialState: State = {
-    firstName: '',
+    name: '',
+    role: '',
+    freelancerType: '',
+    profileBuildOption: '',
+    category: '',
+    specializations: [],
+    title: '',
+    hourlyRate: 0,
+    languages: [{ language: 'English', proficiency: 'Fluent' }],
     birthday: '',
     gender: '',
     pronouns: [],
@@ -81,7 +106,6 @@ const initialState: State = {
     location: '',
     locationCoords: null,
     photos: [],
-    bio: '',
     publicBio: '',
     aiBio: '',
     prompts: [
@@ -91,6 +115,11 @@ const initialState: State = {
     ],
     verificationStatus: 'unverified',
     notificationsEnabled: false,
+    country: 'India',
+    streetAddress: '',
+    aptSuite: '',
+    linkedIn: '',
+    github: '',
 };
 
 const OnboardingContext = createContext<{ state: State; dispatch: React.Dispatch<Action> } | undefined>(undefined);

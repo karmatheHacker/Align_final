@@ -1,307 +1,237 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import {
     View,
     Text,
-    TextInput,
     TouchableOpacity,
     StyleSheet,
-    KeyboardAvoidingView,
     Platform,
+    SafeAreaView,
+    ScrollView
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../constants/colors';
-import { SPACING } from '../constants/spacing';
-import StepIndicator from '../components/StepIndicator';
-import AgeConfirmationModal from '../components/AgeConfirmationModal';
-import { STEP_ORDER } from '../constants/steps';
-import { FadeUpView, FooterFadeIn } from '../components/OnboardingAnimations';
 import { useUpdateOnboarding } from '../hooks/useUpdateOnboarding';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { Feather } from '@expo/vector-icons';
 
-interface BirthdayScreenProps {
+interface FreelancerTypeScreenProps {
     onNext: () => void;
     onBack: () => void;
 }
 
-const BirthdayScreen: React.FC<BirthdayScreenProps> = ({ onNext, onBack }) => {
-    const { dispatch, state } = useOnboarding();
+const FREELANCER_OPTIONS = [
+    {
+        id: 'side_hustle',
+        title: 'A side hustle',
+        icon: (
+            <Svg viewBox="0 0 100 100" width={70} height={70} fill="none">
+                <Circle cx="50" cy="65" r="22" fill="#14a800" />
+                <Path d="M42,80 L42,40 C42,35 46,30 46,30 C46,30 49,35 49,40 L49,50" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M52,50 L52,25 C52,20 57,18 57,25 L57,55" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M42,65 C35,65 35,75 42,75 L60,75 L60,55 C65,50 65,65 65,65 L65,80 L42,80" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M42,80 L42,95 L65,95 L65,80" fill="#ffffff" stroke="#ffffff" strokeWidth="3" />
+            </Svg>
+        ),
+    },
+    {
+        id: 'solo_freelancer',
+        title: 'Solo\nfreelancer',
+        icon: (
+            <Svg viewBox="0 0 100 100" width={70} height={70} fill="none">
+                <Circle cx="50" cy="65" r="22" fill="#14a800" />
+                <Path d="M60,20 L65,25 L75,50 L70,55 Z" stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" />
+                <Path d="M60,20 L55,15 L65,25" stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" />
+                <Path d="M75,50 L78,60 L70,55" fill="#14a800" stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" />
+                <Path d="M40,95 L40,70 C40,60 45,45 50,45 C55,45 55,55 55,55 C60,50 65,55 60,65 C65,65 65,75 55,80 L55,95 Z" fill="#ffffff" />
+                <Path d="M45,45 C55,30 65,40 65,50" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
+            </Svg>
+        ),
+    },
+    {
+        id: 'agency_employee',
+        title: 'Agency\nemployee',
+        icon: (
+            <Svg viewBox="0 0 100 100" width={70} height={70} fill="none">
+                <Circle cx="30" cy="40" r="14" fill="#14a800" />
+                <Circle cx="70" cy="70" r="18" fill="#14a800" />
+                <Path d="M20,30 L45,55 L55,50 L40,30 M20,30 L35,20 L50,45" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M60,60 C55,50 65,45 70,50 L80,70 L60,70 Z" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M60,95 L60,80 L80,80 L80,95 Z" fill="#ffffff" />
+                <Path d="M50,35 L55,40 M60,30 L55,25" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+            </Svg>
+        ),
+    },
+    {
+        id: 'agency_owner',
+        title: 'Agency\nowner',
+        icon: (
+            <Svg viewBox="0 0 100 100" width={70} height={70} fill="none">
+                <Circle cx="50" cy="75" r="18" fill="#14a800" />
+                <Path d="M35,45 L40,25 L50,35 L60,25 L65,45 Z" stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" />
+                <Circle cx="50" cy="15" r="2" fill="#ffffff" />
+                <Path d="M30,70 C40,65 60,65 70,60 C75,55 80,60 75,65 C60,70 50,75 50,85 L30,85 Z" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M30,95 L30,75 L50,85 L50,95 Z" fill="#ffffff" stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" />
+            </Svg>
+        ),
+    },
+];
+
+const BirthdayScreen: React.FC<FreelancerTypeScreenProps> = ({ onNext, onBack }) => {
+    const { dispatch } = useOnboarding();
     const insets = useSafeAreaInsets();
     const saveField = useUpdateOnboarding();
-
-    const [day, setDay] = useState('');
-    const [month, setMonth] = useState('');
-    const [year, setYear] = useState('');
-    const [showModal, setShowModal] = useState(false);
-    const [birthdayDigits, setBirthdayDigits] = useState<string[]>([]);
-
-    const dayRef = useRef<TextInput>(null);
-    const monthRef = useRef<TextInput>(null);
-    const yearRef = useRef<TextInput>(null);
-
-    const currentIndex = STEP_ORDER.indexOf('birthday');
-    const totalSteps = STEP_ORDER.length;
-
-    const getAge = (d: string, m: string, y: string) => {
-        if (!d || !m || !y || y.length < 4) return 0;
-        const birthDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-        if (isNaN(birthDate.getTime())) return 0;
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        return age;
-    };
-
-    const age = getAge(day, month, year);
-    const isValidDate = day.length > 0 && month.length > 0 && year.length === 4;
-    const canContinue = isValidDate && age >= 18;
+    const [selected, setSelected] = React.useState<string | null>(null);
 
     const handleContinue = () => {
-        if (!isValidDate) return;
-
-        const paddedDay = day.padStart(2, '0');
-        const paddedMonth = month.padStart(2, '0');
-        const paddedYear = year.padStart(4, '0');
-
-        const digits = [
-            paddedDay[0], paddedDay[1],
-            paddedMonth[0], paddedMonth[1],
-            paddedYear[0], paddedYear[1], paddedYear[2], paddedYear[3]
-        ];
-
-        setBirthdayDigits(digits);
-        setShowModal(true);
-    };
-
-    const handleConfirm = async () => {
-        const birthdayStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        dispatch({ type: 'SET_FIELD', field: 'birthday', value: birthdayStr });
-
-        // Fire and forget save to Convex
-        saveField({ birthday: birthdayStr }).catch(() => undefined);
-
-        setShowModal(false);
+        if (!selected) return;
+        saveField({ freelancerType: selected }).catch(() => undefined);
+        dispatch({ type: 'SET_FIELD', field: 'freelancerType', value: selected });
         onNext();
     };
 
-    const footerPaddingBottom =
-        Math.max(insets.bottom, SPACING.lg) + (Platform.OS === 'android' ? SPACING.md : 0);
-
     return (
-        <View style={styles.container}>
-            <StepIndicator
-                currentIndex={currentIndex}
-                totalSteps={totalSteps}
-                onBack={onBack}
-            />
+        <SafeAreaView style={styles.container}>
+            <View style={styles.statusBarPlaceholder} />
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.flex1}
-            >
-                <View style={styles.mainContent}>
-                    {/* Title */}
-                    <FadeUpView delay={200} style={styles.titleContainer}>
-                        <Text style={styles.title}>Birthday</Text>
-                        <View style={styles.accentBar} />
-                    </FadeUpView>
-
-                    {/* Input Grid */}
-                    <FadeUpView delay={350} style={styles.gridContainer}>
-                        <View style={styles.gridRow}>
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.dateLabel}>MM</Text>
-                                <View style={styles.dateBox}>
-                                    <TextInput
-                                        ref={monthRef}
-                                        style={styles.dateInput}
-                                        placeholder="01"
-                                        placeholderTextColor={COLORS.gray}
-                                        keyboardType="number-pad"
-                                        maxLength={2}
-                                        value={month}
-                                        onChangeText={(v) => {
-                                            setMonth(v);
-                                            if (v.length === 2) dayRef.current?.focus();
-                                        }}
-                                        selectionColor={COLORS.primary}
-                                        autoFocus
-                                    />
-                                </View>
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.dateLabel}>DD</Text>
-                                <View style={styles.dateBox}>
-                                    <TextInput
-                                        ref={dayRef}
-                                        style={styles.dateInput}
-                                        placeholder="01"
-                                        placeholderTextColor={COLORS.gray}
-                                        keyboardType="number-pad"
-                                        maxLength={2}
-                                        value={day}
-                                        onChangeText={(v) => {
-                                            setDay(v);
-                                            if (v.length === 2) yearRef.current?.focus();
-                                        }}
-                                        onKeyPress={({ nativeEvent }) => {
-                                            if (nativeEvent.key === 'Backspace' && day === '') monthRef.current?.focus();
-                                        }}
-                                        selectionColor={COLORS.primary}
-                                    />
-                                </View>
-                            </View>
-
-                            <View style={[styles.inputGroup, { flex: 1.2 }]}>
-                                <Text style={styles.dateLabel}>YYYY</Text>
-                                <View style={styles.dateBox}>
-                                    <TextInput
-                                        ref={yearRef}
-                                        style={styles.dateInput}
-                                        placeholder="2000"
-                                        placeholderTextColor={COLORS.gray}
-                                        keyboardType="number-pad"
-                                        maxLength={4}
-                                        value={year}
-                                        onChangeText={setYear}
-                                        onKeyPress={({ nativeEvent }) => {
-                                            if (nativeEvent.key === 'Backspace' && year === '') dayRef.current?.focus();
-                                        }}
-                                        selectionColor={COLORS.primary}
-                                    />
-                                </View>
-                            </View>
-                        </View>
-                    </FadeUpView>
+            <ScrollView contentContainerStyle={styles.content} bounces={false}>
+                <View style={styles.headerSection}>
+                    <Text style={styles.headerTitle}>What type of freelancer are you?</Text>
+                    <Text style={styles.headerDesc}>
+                        Whatever your style, we'll make it work.
+                    </Text>
                 </View>
-            </KeyboardAvoidingView>
 
-            {/* Footer */}
-            <FooterFadeIn
-                delay={650}
-                style={[styles.footer, { paddingBottom: footerPaddingBottom }]}
-            >
+                <View style={styles.gridContainer}>
+                    {FREELANCER_OPTIONS.map((option) => (
+                        <TouchableOpacity
+                            key={option.id}
+                            style={[
+                                styles.card,
+                                selected === option.id && styles.cardSelected,
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => setSelected(option.id)}
+                        >
+                            <View style={styles.cardIconContainer}>
+                                {option.icon}
+                            </View>
+                            <Text style={styles.cardTitle}>{option.title}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </ScrollView>
+
+            <View style={[styles.footerSection, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+                <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+                    <Feather name="arrow-left" size={20} color="#1dbf73" />
+                </TouchableOpacity>
                 <TouchableOpacity
-                    style={[
-                        styles.btnContinue,
-                        !canContinue && styles.btnDisabled,
-                        {
-                            opacity: (month.trim().length > 0 || day.trim().length > 0 || year.trim().length > 0) ? 1 : 0,
-                            pointerEvents: (month.trim().length > 0 || day.trim().length > 0 || year.trim().length > 0) ? 'auto' : 'none'
-                        }
-                    ]}
+                    style={[styles.continueButton, !selected && styles.btnDisabled]}
                     onPress={handleContinue}
                     activeOpacity={0.8}
-                    disabled={!canContinue}
+                    disabled={!selected}
                 >
-                    <Text style={styles.btnText}>Continue</Text>
-                    <Feather name="arrow-right" size={20} color={COLORS.white} />
+                    <Text style={styles.continueButtonText}>Continue</Text>
                 </TouchableOpacity>
-            </FooterFadeIn>
-
-            <AgeConfirmationModal
-                visible={showModal}
-                digits={birthdayDigits}
-                ageError={isValidDate && age < 18 ? "You must be at least 18 years old." : undefined}
-                onEdit={() => setShowModal(false)}
-                onConfirm={handleConfirm}
-            />
-        </View>
+            </View>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.surface,
+        backgroundColor: '#0f1012',
     },
-    flex1: {
-        flex: 1,
+    statusBarPlaceholder: {
+        height: Platform.OS === 'android' ? 24 : 0,
     },
-    mainContent: {
-        flex: 1,
-        paddingHorizontal: SPACING.xl,
-        justifyContent: 'center',
+    content: {
+        flexGrow: 1,
+        paddingHorizontal: 24,
+        paddingTop: 48,
     },
-    titleContainer: {
-        marginBottom: SPACING.xxl,
+    headerSection: {
+        marginTop: 40,
+        marginBottom: 32,
     },
-    title: {
-        fontFamily: 'PlayfairDisplay_700Bold',
-        fontSize: 72,
-        lineHeight: 84,
-        letterSpacing: -2,
-        textTransform: 'uppercase',
-        color: COLORS.text,
-        paddingTop: Platform.OS === 'ios' ? 8 : 2,
-        paddingBottom: 2,
+    headerTitle: {
+        fontFamily: 'Inter_700Bold',
+        fontSize: 32,
+        lineHeight: 38,
+        color: '#ffffff',
+        marginBottom: 12,
     },
-    accentBar: {
-        width: 48,
-        height: 6,
-        backgroundColor: COLORS.primary,
-        marginTop: SPACING.md,
-        borderRadius: 3,
+    headerDesc: {
+        fontFamily: 'Inter_400Regular',
+        fontSize: 16,
+        lineHeight: 22,
+        color: '#e0e0e0',
     },
     gridContainer: {
-        marginBottom: SPACING.xl,
-    },
-    gridRow: {
         flexDirection: 'row',
-        gap: SPACING.md,
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        gap: 16,
+        marginBottom: 100,
     },
-    inputGroup: {
+    card: {
+        width: '47%',
+        backgroundColor: '#1c1c1c',
+        borderRadius: 12,
+        padding: 20,
+        aspectRatio: 0.85,
+        justifyContent: 'space-between',
+        borderWidth: 1.5,
+        borderColor: 'transparent',
+    },
+    cardSelected: {
+        borderColor: '#14a800',
+    },
+    cardIconContainer: {
         flex: 1,
-    },
-    dateLabel: {
-        fontFamily: 'Inter_700Bold',
-        fontSize: 10,
-        color: COLORS.gray,
-        textTransform: 'uppercase',
-        letterSpacing: 1.5,
-        marginBottom: SPACING.sm,
-    },
-    dateBox: {
-        backgroundColor: 'rgba(0,0,0,0.02)',
-        borderWidth: 2,
-        borderColor: COLORS.black,
-        height: 72,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    dateInput: {
-        width: '100%',
-        textAlign: 'center',
+    cardTitle: {
         fontFamily: 'Inter_600SemiBold',
-        fontSize: 24,
-        color: COLORS.black,
+        fontSize: 16,
+        lineHeight: 21,
+        color: '#ffffff',
     },
-    footer: {
-        paddingHorizontal: SPACING.xl,
-    },
-    btnContinue: {
-        width: '100%',
-        backgroundColor: COLORS.black,
+    footerSection: {
+        paddingHorizontal: 24,
+        paddingTop: 16,
         flexDirection: 'row',
+        gap: 12,
+    },
+    backBtn: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: '#333',
         alignItems: 'center',
         justifyContent: 'center',
-        height: 64,
-        borderRadius: 0,
+        backgroundColor: 'transparent',
+    },
+    continueButton: {
+        flex: 1,
+        backgroundColor: '#ffffff',
+        paddingVertical: 16,
+        borderRadius: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 56,
     },
     btnDisabled: {
-        opacity: 0.3,
+        backgroundColor: '#333',
+        opacity: 0.5,
     },
-    btnText: {
-        fontFamily: 'Inter_700Bold',
-        color: COLORS.white,
+    continueButtonText: {
+        fontFamily: 'Inter_600SemiBold',
         fontSize: 16,
-        textTransform: 'uppercase',
-        letterSpacing: 1.4,
-        marginRight: SPACING.sm,
+        color: '#000000',
     },
 });
 

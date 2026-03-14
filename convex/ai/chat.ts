@@ -155,7 +155,10 @@ export const sendMessage = action({
             contextSnippet;
 
         const apiMessages = [
-            ...history.map((m: any) => ({ role: m.isAi ? "assistant" : "user", content: m.text })),
+            ...history.slice().reverse().map((m: any) => ({
+                role: m.isAi ? "assistant" : "user",
+                content: m.text
+            })),
             { role: "user", content: text }
         ];
 

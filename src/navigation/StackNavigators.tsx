@@ -1,6 +1,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import HomeScreen from '../screens/HomeScreen';
+import HeyMayaHomeScreen from '../screens/HeyMayaHomeScreen';
+import HeyMayaChatScreen from '../screens/HeyMayaChatScreen';
 import AlignAIScreen from '../screens/AlignAIScreen';
 import LikesScreen from '../screens/LikesScreen';
 import ChatListScreen from '../screens/ChatListScreen';
@@ -20,6 +21,8 @@ import ProfileDetailScreen from '../screens/ProfileDetailScreen';
 import ReportScreen from '../screens/ReportScreen';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
 import WeeklyInsightsScreen from '../screens/WeeklyInsightsScreen';
+import PropozeChatScreen from '../screens/PropozeChatScreen';
+import ProjectDocumentUploadScreen from '../screens/ProjectDocumentUploadScreen';
 
 // ---------------------------------------------------------------------------
 import { View, Text, StyleSheet } from 'react-native';
@@ -47,7 +50,10 @@ const ProfileStack = createStackNavigator();
 
 export const HomeNavigator = () => (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
-        <HomeStack.Screen name="Home" component={HomeScreen} />
+        <HomeStack.Screen name="Home" component={HeyMayaHomeScreen} />
+        <HomeStack.Screen name="HeyMayaChat" component={HeyMayaChatScreen} />
+        <HomeStack.Screen name="PropozeChat" component={PropozeChatScreen} />
+        <HomeStack.Screen name="ProjectDocumentUpload" component={ProjectDocumentUploadScreen} />
         <HomeStack.Screen
             name="AlignAI"
             component={AlignAIScreen}

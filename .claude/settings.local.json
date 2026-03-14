@@ -31,7 +31,8 @@
       "Bash(netsh advfirewall firewall show rule name=\"Align Server 3000\")",
       "Bash(wc -l /d/Align_Final/src/screens/*.tsx)",
       "Bash(wc -l /d/Align_Final/src/components/*.tsx)",
-      "Bash(wc -l /d/Align_Final/src/navigation/*.tsx)"
+      "Bash(wc -l /d/Align_Final/src/navigation/*.tsx)",
+      "Bash(npm install expo-document-picker --legacy-peer-deps)"
     ]
   }
 }

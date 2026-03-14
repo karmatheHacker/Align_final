@@ -9,12 +9,21 @@ export default defineSchema({
         imageUrl: v.string(),
 
         // Core Identity (optional initially, filled during onboarding)
-        firstName: v.optional(v.string()),
-        birthday: v.optional(v.string()),
-        gender: v.optional(v.string()),
-        sexuality: v.optional(v.string()),
-        relationshipType: v.optional(v.string()),
-        datingIntention: v.optional(v.string()),
+        firstName: v.optional(v.union(v.string(), v.null())),
+        role: v.optional(v.union(v.string(), v.null())),
+        freelancerType: v.optional(v.union(v.string(), v.null())),
+        profileBuildOption: v.optional(v.union(v.string(), v.null())),
+        category: v.optional(v.union(v.string(), v.null())),
+        title: v.optional(v.union(v.string(), v.null())),
+        hourlyRate: v.optional(v.union(v.number(), v.null())),
+        specializations: v.optional(v.union(v.array(v.string()), v.null())),
+        resumeFileId: v.optional(v.union(v.id("_storage"), v.null())),
+        resumeUrl: v.optional(v.union(v.string(), v.null())),
+        birthday: v.optional(v.union(v.string(), v.null())),
+        gender: v.optional(v.union(v.string(), v.null())),
+        sexuality: v.optional(v.union(v.string(), v.null())),
+        relationshipType: v.optional(v.union(v.string(), v.null())),
+        datingIntention: v.optional(v.union(v.string(), v.null())),
 
         // Optional Identity
         pronouns: v.optional(v.union(v.array(v.string()), v.null())),
@@ -27,9 +36,15 @@ export default defineSchema({
             latitude: v.number(),
             longitude: v.number()
         }), v.null())),
+        country: v.optional(v.union(v.string(), v.null())),
+        streetAddress: v.optional(v.union(v.string(), v.null())),
+        aptSuite: v.optional(v.union(v.string(), v.null())),
+        linkedIn: v.optional(v.union(v.string(), v.null())),
+        github: v.optional(v.union(v.string(), v.null())),
 
         // Education & Career
         education: v.optional(v.union(v.string(), v.null())),
+        languages: v.optional(v.union(v.array(v.object({ language: v.string(), proficiency: v.string() })), v.null())),
         school: v.optional(v.union(v.string(), v.null())),
         workplace: v.optional(v.union(v.string(), v.null())),
 
@@ -55,6 +70,8 @@ export default defineSchema({
         })), v.null())),
 
         onboardingCompleted: v.boolean(),
+        pendingDeletion: v.optional(v.boolean()),
+        favorites: v.optional(v.array(v.string())),
         verificationStatus: v.optional(v.union(v.literal("none"), v.literal("pending"), v.literal("approved"), v.literal("rejected"))),
         createdAt: v.number(),
         updatedAt: v.optional(v.number()),
@@ -91,6 +108,7 @@ export default defineSchema({
         fromClerkId: v.string(),
         toClerkId: v.string(),
         direction: v.union(v.literal("left"), v.literal("right")),
+        introMessage: v.optional(v.string()),
         createdAt: v.number(),
     })
         .index("by_from", ["fromClerkId"])
@@ -235,4 +253,50 @@ export default defineSchema({
         isAi: v.boolean(),
         createdAt: v.number(),
     }).index("by_clerkId", ["clerkId"]),
+
+    // Propoze Document Intelligence Tables
+    project_documents: defineTable({
+        clerkId: v.string(), // Owner/uploader of the document
+        title: v.string(),
+        documentReference: v.optional(v.string()), // e.g., "#MC-2026-TRD"
+        version: v.optional(v.string()),
+        status: v.optional(v.string()), // e.g., "Confidential / RFP Phase"
+        storageId: v.id("_storage"), // PDF file in Convex storage
+        url: v.string(),
+        parsedContent: v.string(), // Full text content extracted from PDF
+        sectionsJson: v.string(), // JSON array of {title, content, page, sectionNumber}
+        uploadedAt: v.number(),
+        isActive: v.boolean(), // Only one active document per user for Propoze mode
+    })
+        .index("by_clerkId", ["clerkId"])
+        .index("by_clerkId_active", ["clerkId", "isActive"]),
+
+    propoze_chat_messages: defineTable({
+        clerkId: v.string(),
+        projectDocumentId: v.id("project_documents"),
+        text: v.string(),
+        isAi: v.boolean(),
+        citations: v.optional(v.array(v.object({
+            section: v.string(), // e.g., "Section 2.1" or "Page 5"
+            quote: v.string(), // The actual text being cited
+        }))),
+        mode: v.optional(v.string()), // "DOC_QA", "BID_GEN", "CHALLENGE_MODE"
+        createdAt: v.number(),
+    })
+        .index("by_clerkId", ["clerkId"])
+        .index("by_document", ["projectDocumentId"])
+        .index("by_clerkId_document", ["clerkId", "projectDocumentId"]),
+
+    propoze_proposals: defineTable({
+        clerkId: v.string(),
+        projectDocumentId: v.id("project_documents"),
+        proposalText: v.string(),
+        keyConstraints: v.array(v.object({
+            constraint: v.string(),
+            citation: v.string(),
+        })),
+        generatedAt: v.number(),
+    })
+        .index("by_clerkId", ["clerkId"])
+        .index("by_document", ["projectDocumentId"]),
 });

@@ -13,10 +13,42 @@ export const generateUploadUrl = mutation({
     },
 });
 
+export const saveResume = mutation({
+    args: {
+        storageId: v.id("_storage"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Unauthenticated call to saveResume");
+        }
+
+        const url = await ctx.storage.getUrl(args.storageId);
+        if (!url) {
+            throw new Error("Failed to retrieve URL for uploaded file");
+        }
+
+        const clerkId = identity.subject;
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+            .first();
+
+        if (!user) throw new Error("User not found");
+
+        await ctx.db.patch(user._id, {
+            resumeFileId: args.storageId,
+            resumeUrl: url,
+        });
+
+        return { url, storageId: args.storageId };
+    },
+});
+
 export const saveProfilePhoto = mutation({
     args: {
         storageId: v.id("_storage"),
-        position: v.number(),
+        position: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -36,7 +68,7 @@ export const saveProfilePhoto = mutation({
             clerkId,
             storageId: args.storageId,
             url,
-            position: args.position,
+            position: args.position ?? 0,
             createdAt: Date.now(),
         });
 

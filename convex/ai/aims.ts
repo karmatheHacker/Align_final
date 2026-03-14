@@ -73,7 +73,7 @@ function getAdaptiveWeights(accountAgeMs: number): { profileWeight: number; beha
     }
 }
 
-function calculateAge(birthday: string | undefined): number {
+function calculateAge(birthday: string | null | undefined): number {
     if (!birthday) return 0;
     try {
         const birthDate = new Date(birthday);

@@ -303,6 +303,15 @@ export const updateUserLocation = mutation({
 export const updateUser = mutation({
     args: {
         clerkId: v.string(),
+        role: v.optional(v.union(v.string(), v.null())),
+        freelancerType: v.optional(v.union(v.string(), v.null())),
+        profileBuildOption: v.optional(v.union(v.string(), v.null())),
+        category: v.optional(v.union(v.string(), v.null())),
+        title: v.optional(v.union(v.string(), v.null())),
+        hourlyRate: v.optional(v.union(v.number(), v.null())),
+        specializations: v.optional(v.union(v.array(v.string()), v.null())),
+        resumeFileId: v.optional(v.union(v.id("_storage"), v.null())),
+        resumeUrl: v.optional(v.union(v.string(), v.null())),
         name: v.optional(v.union(v.string(), v.null())),
         firstName: v.optional(v.union(v.string(), v.null())),
         birthday: v.optional(v.union(v.string(), v.null())),
@@ -313,7 +322,13 @@ export const updateUser = mutation({
         pronouns: v.optional(v.union(v.array(v.string()), v.null())),
         height: v.optional(v.union(v.object({ value: v.number(), unit: v.string() }), v.null())),
         hometown: v.optional(v.union(v.string(), v.null())),
+        country: v.optional(v.union(v.string(), v.null())),
+        streetAddress: v.optional(v.union(v.string(), v.null())),
+        aptSuite: v.optional(v.union(v.string(), v.null())),
+        linkedIn: v.optional(v.union(v.string(), v.null())),
+        github: v.optional(v.union(v.string(), v.null())),
         education: v.optional(v.union(v.string(), v.null())),
+        languages: v.optional(v.union(v.array(v.object({ language: v.string(), proficiency: v.string() })), v.null())),
         school: v.optional(v.union(v.string(), v.null())),
         workplace: v.optional(v.union(v.string(), v.null())),
         religion: v.optional(v.union(v.string(), v.null())),
@@ -764,7 +779,7 @@ export const getDiscoveryProfiles = query({
     },
 });
 
-function calculateAge(birthday: string | undefined) {
+function calculateAge(birthday: string | null | undefined) {
     if (!birthday) return 0;
     try {
         const birthDate = new Date(birthday);

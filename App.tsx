@@ -16,11 +16,11 @@ import { WelcomeScreen } from './src/auth/WelcomeScreen';
 import NameScreen from './src/screens/NameScreen';
 import BirthdayScreen from './src/screens/BirthdayScreen';
 import GenderScreen from './src/screens/GenderScreen';
-import PronounsScreen from './src/screens/PronounsScreen';
-import SexualityScreen from './src/screens/SexualityScreen';
-import RelationshipTypeScreen from './src/screens/RelationshipTypeScreen';
-import DatingIntentionScreen from './src/screens/DatingIntentionScreen';
-import HeightScreen from './src/screens/HeightScreen';
+import AboutYouScreen from './src/screens/AboutYouScreen';
+import HourlyRateScreen from './src/screens/HourlyRateScreen';
+import EducationLanguageScreen from './src/screens/EducationLanguageScreen';
+import PersonalInfoScreen from './src/screens/PersonalInfoScreen';
+import CategoryScreen from './src/screens/CategoryScreen';
 import HometownScreen from './src/screens/HometownScreen';
 import WorkplaceScreen from './src/screens/WorkplaceScreen';
 import EducationScreen from './src/screens/EducationScreen';
@@ -45,7 +45,7 @@ import ChapterTransition from './src/components/ChapterTransition';
 import { CHAPTER_CONFIG, STEP_ORDER } from './src/constants/steps';
 import { theme } from './src/theme';
 
-type OnboardingStep = 'welcome' | 'name' | 'birthday' | 'gender' | 'pronouns' | 'sexuality' | 'relationshipType' | 'datingIntention' | 'height' | 'hometown' | 'workplace' | 'education' | 'school' | 'religion' | 'politics' | 'children' | 'tobacco' | 'drinking' | 'drugs' | 'distance' | 'photos' | 'bio' | 'prompts' | 'verification' | 'verificationWait' | 'safety' | 'notifications' | 'complete' | 'dashboard';
+type OnboardingStep = 'welcome' | 'name' | 'freelancerType' | 'profileBuildOption' | 'category' | 'aboutYou' | 'educationLanguage' | 'personalInfo' | 'hometown' | 'workplace' | 'education' | 'school' | 'religion' | 'politics' | 'children' | 'tobacco' | 'drinking' | 'drugs' | 'distance' | 'photos' | 'bio' | 'prompts' | 'verification' | 'verificationWait' | 'safety' | 'notifications' | 'complete' | 'dashboard';
 
 function InnerApp() {
   const [step, setStep] = React.useState<OnboardingStep>('welcome');
@@ -61,6 +61,7 @@ function InnerApp() {
   // Only query Convex if user is signed in
   const convexUser = useQuery(api.users.getCurrentUser, isSignedIn ? undefined : "skip");
   const createUser = useMutation(api.users.createUserIfNotExists);
+  const completeOnboarding = useMutation(api.users.completeOnboarding);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -120,62 +121,64 @@ function InnerApp() {
         return (
           <NameScreen
             onBack={() => setStep('welcome')}
-            onNext={() => setStep('birthday')}
+            onNext={(role) => {
+              if (role === 'buyer') {
+                if (user) {
+                  completeOnboarding({ clerkId: user.id });
+                }
+                setStep('dashboard');
+              } else {
+                setStep('freelancerType');
+              }
+            }}
           />
         );
-      case 'birthday':
+      case 'freelancerType':
         return (
           <BirthdayScreen
             onBack={() => setStep('name')}
-            onNext={() => setStep('gender')}
+            onNext={() => setStep('profileBuildOption')}
           />
         );
-      case 'gender':
+      case 'profileBuildOption':
         return (
           <GenderScreen
-            onBack={() => setStep('birthday')}
-            onNext={() => setStep('pronouns')}
+            onBack={() => setStep('freelancerType')}
+            onNext={() => setStep('category')}
           />
         );
-      case 'pronouns':
+      case 'category':
         return (
-          <PronounsScreen
-            onBack={() => setStep('gender')}
-            onNext={() => setStep('sexuality')}
+          <CategoryScreen
+            onBack={() => setStep('profileBuildOption')}
+            onNext={() => setStep('aboutYou')}
           />
         );
-      case 'sexuality':
+      case 'aboutYou':
         return (
-          <SexualityScreen
-            onBack={() => setStep('pronouns')}
-            onNext={() => setStep('relationshipType')}
+          <AboutYouScreen
+            onBack={() => setStep('category')}
+            onNext={() => setStep('educationLanguage')}
           />
         );
-      case 'relationshipType':
+      case 'educationLanguage':
         return (
-          <RelationshipTypeScreen
-            onBack={() => setStep('sexuality')}
-            onNext={() => setStep('datingIntention')}
+          <EducationLanguageScreen
+            onBack={() => setStep('aboutYou')}
+            onNext={() => setStep('personalInfo')}
           />
         );
-      case 'datingIntention':
+      case 'personalInfo':
         return (
-          <DatingIntentionScreen
-            onBack={() => setStep('relationshipType')}
-            onNext={() => setStep('height')}
-          />
-        );
-      case 'height':
-        return (
-          <HeightScreen
-            onBack={() => setStep('datingIntention')}
+          <PersonalInfoScreen
+            onBack={() => setStep('educationLanguage')}
             onNext={() => setStep('hometown')}
           />
         );
       case 'hometown':
         return (
           <HometownScreen
-            onBack={() => setStep('height')}
+            onBack={() => setStep('personalInfo')}
             onNext={() => setStep('education')}
           />
         );
